@@ -1,0 +1,22 @@
+{
+  "name": "grassland-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "probe": "node scripts/probe-observations.mjs",
+    "check:ndvi": "node --env-file=.env.local scripts/check-ndvi.mjs",
+    "analyze:ndvi": "node --env-file=.env.local scripts/analyze-ndvi.mjs",
+    "test:capacity": "node src/utils/carryingCapacity.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "echarts": "^6.1.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}

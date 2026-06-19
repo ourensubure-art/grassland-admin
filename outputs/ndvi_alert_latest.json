@@ -1,0 +1,16 @@
+[
+  {
+    "pasture_id": "pasture_001",
+    "week_start": "2026-06-08",
+    "week_end": "2026-06-15",
+    "week_of_year": 25,
+    "ndvi_raw": 0.263,
+    "ndvi_smooth": 0.2374,
+    "baseline_p10": 0.217,
+    "baseline_p30": 0.221,
+    "baseline_p50": 0.2621,
+    "baseline_p70": 0.3035,
+    "status": "normal",
+    "emoji": "🟢"
+  }
+]
