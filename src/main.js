@@ -3,6 +3,19 @@ import * as echarts from "echarts";
 import { predictNDVI, predict4Weeks } from "./utils/ndviPredict.js";
 import { getGrazingDecision } from "./utils/grazingDecision.js";
 import { computeCapacityFromNDVI, evaluateOverstocking } from "./utils/carryingCapacity.js";
+import { fetchDecisions } from "./utils/decisionApi.js";
+import {
+  decisionTypeClass,
+  decisionTypeLabel,
+  formatDate,
+  formatDateTimeShort,
+  formatMetric,
+  formatPercent,
+  severityClass,
+  severityLabel,
+  statusClass,
+  statusLabel
+} from "./utils/decisionFormat.js";
 
 const OBSERVATIONS_TABLE = "observations";
 const NDVI_TABLE = "ndvi_weekly";
@@ -28,6 +41,10 @@ const state = {
     rows: [],
     pastures: [],
     selectedPastureId: ""
+  },
+  decisions: {
+    loading: false,
+    rows: []
   }
 };
 let ndviChart = null;
@@ -209,6 +226,137 @@ function renderOverview() {
   $("#updatedAt").textContent = `更新时间：${formatDateTime(new Date().toISOString())}`;
   renderVillageChart();
   renderRecentList();
+}
+
+function isAdmin() {
+  return localStorage.getItem("grassland_admin") === "true";
+}
+
+function currentUserLabel() {
+  return isAdmin() ? "admin" : "anonymous";
+}
+
+function applyAdminModeFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("admin") === "1") {
+    localStorage.setItem("grassland_admin", "true");
+  }
+}
+
+function updateAdminUi() {
+  const admin = isAdmin();
+  $("#adminModeToggle").checked = admin;
+  $("#decisionAdminBadge").textContent = admin ? "管理员模式" : "普通模式";
+  $("#decisionAdminBadge").className = admin
+    ? "rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white"
+    : "rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600";
+  $("#decisionsListHint").textContent = admin ? "管理员模式显示全部状态，包含草稿决策。" : "普通模式仅显示已发布决策。";
+}
+
+async function initDecisionsTab() {
+  await loadDecisionsList();
+}
+
+async function loadDecisionsList() {
+  state.decisions.loading = true;
+  setDecisionsLoading(true);
+  setDecisionsError("");
+  updateAdminUi();
+
+  try {
+    state.decisions.rows = await fetchDecisions({ admin: isAdmin() });
+    renderDecisionsList();
+  } catch (error) {
+    console.error("读取决策列表失败：", error);
+    setDecisionsError("决策列表读取失败，请检查网络或 Supabase 权限后重试。");
+  } finally {
+    state.decisions.loading = false;
+    setDecisionsLoading(false);
+  }
+}
+
+function setDecisionsLoading(isLoading) {
+  $("#refreshDecisionsBtn").disabled = isLoading;
+  $("#refreshDecisionsBtn").textContent = isLoading ? "读取中..." : "刷新列表";
+  $("#refreshDecisionsBtn").classList.toggle("opacity-60", isLoading);
+  $("#refreshDecisionsBtn").classList.toggle("cursor-not-allowed", isLoading);
+
+  if (!isLoading) return;
+  $("#decisionsStatus").className = "mb-5 rounded-lg bg-white p-4 shadow-panel";
+  $("#decisionsStatus").innerHTML = spinnerHtml("正在读取决策发布数据...");
+  $("#decisionsList").innerHTML = skeletonRows(4);
+  $("#decisionsCount").textContent = "-- 条";
+}
+
+function setDecisionsError(message) {
+  if (!message) {
+    $("#decisionsStatus").className = "mb-5 hidden";
+    $("#decisionsStatus").innerHTML = "";
+    return;
+  }
+  $("#decisionsStatus").className = "mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800";
+  $("#decisionsStatus").innerHTML = `
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <p class="font-bold">${esc(message)}</p>
+      <button id="decisionsRetryBtn" class="h-10 rounded-md bg-red-700 px-4 text-sm font-black text-white">重试</button>
+    </div>`;
+  $("#decisionsRetryBtn").addEventListener("click", loadDecisionsList);
+}
+
+function renderDecisionsList() {
+  const rows = state.decisions.rows;
+  $("#decisionsCount").textContent = `${rows.length} 条`;
+
+  if (!rows.length) {
+    $("#decisionsList").innerHTML = `<p class="rounded-md bg-slate-50 p-5 text-sm font-bold text-slate-500">暂无可查看的决策。</p>`;
+    return;
+  }
+
+  $("#decisionsList").innerHTML = rows.map((decision) => `
+    <article class="cursor-pointer rounded-lg border border-slate-200 bg-white p-4 transition hover:border-grass-500 hover:bg-grass-50" data-decision-id="${esc(decision.id)}">
+      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div class="min-w-0">
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            ${pillHtml(decisionTypeLabel(decision.decision_type), decisionTypeClass(decision.decision_type))}
+            ${pillHtml(severityLabel(decision.severity), severityClass(decision.severity))}
+            ${pillHtml(statusLabel(decision.status), statusClass(decision.status))}
+          </div>
+          <h4 class="text-lg font-black leading-7 text-slate-950">${esc(decision.title)}</h4>
+          <p class="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">${esc(decision.reason_summary || decision.reason_for_herder || "暂无摘要")}</p>
+        </div>
+        <div class="shrink-0 rounded-md bg-slate-50 px-3 py-2 text-right">
+          <p class="text-xs font-black text-slate-500">牧场</p>
+          <p class="mt-1 text-sm font-black text-slate-900">${esc(decision.pasture_id)}</p>
+        </div>
+      </div>
+      <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 text-sm md:grid-cols-5">
+        ${decisionStatHtml("执行日期", `${formatDate(decision.start_date)} 至 ${formatDate(decision.end_date)}`)}
+        ${decisionStatHtml("当前 NDVI", formatMetric(decision.ndvi_current))}
+        ${decisionStatHtml("本地等级", decision.local_grade || "--")}
+        ${decisionStatHtml("趋势", decision.trend || "--")}
+        ${decisionStatHtml("置信度", formatPercent(decision.confidence))}
+      </div>
+      <div class="mt-3 text-xs font-bold text-slate-400">发布时间：${formatDateTimeShort(decision.published_at)} · 创建时间：${formatDateTimeShort(decision.created_at)}</div>
+    </article>
+  `).join("");
+
+  document.querySelectorAll("[data-decision-id]").forEach((card) => {
+    card.addEventListener("click", () => {
+      console.log("待打开决策详情：", card.dataset.decisionId);
+    });
+  });
+}
+
+function pillHtml(label, classes) {
+  return `<span class="inline-flex rounded-full border px-3 py-1 text-xs font-black ${classes}">${esc(label)}</span>`;
+}
+
+function decisionStatHtml(label, value) {
+  return `
+    <div class="rounded-md bg-slate-50 p-3">
+      <p class="text-xs font-black text-slate-500">${esc(label)}</p>
+      <p class="mt-1 font-black text-slate-900">${esc(value)}</p>
+    </div>`;
 }
 
 async function initDecisionTab() {
@@ -933,13 +1081,15 @@ function formatDateTime(value) {
 }
 
 function initApp() {
+  applyAdminModeFromUrl();
+  updateAdminUi();
   loadDashboardData();
   switchPage("decision");
 }
 
 function switchPage(page) {
   currentPage = page;
-  ["decision", "ndvi", "overview", "map"].forEach((name) => {
+  ["decision", "decisions", "ndvi", "overview", "map"].forEach((name) => {
     $(`#${name}Page`).classList.toggle("hidden", name !== page);
     const btn = document.querySelector(`[data-page="${name}"]`);
     btn.classList.toggle("bg-grass-600", name === page);
@@ -948,6 +1098,7 @@ function switchPage(page) {
     btn.classList.toggle("hover:bg-slate-100", name !== page);
   });
   if (page === "decision") initDecisionTab();
+  if (page === "decisions") initDecisionsTab();
   if (page === "ndvi") initNdviTab();
 }
 
@@ -956,10 +1107,13 @@ $("#refreshBtn").addEventListener("click", () => {
     reloadNdviTab();
   } else if (currentPage === "decision") {
     initDecisionTab();
+  } else if (currentPage === "decisions") {
+    loadDecisionsList();
   } else {
     loadDashboardData();
   }
 });
+$("#refreshDecisionsBtn").addEventListener("click", loadDecisionsList);
 $("#ndviPastureSelect").addEventListener("change", async (event) => {
   state.ndvi.selectedPastureId = event.target.value;
   setNdviLoading(true);
@@ -981,6 +1135,14 @@ $("#closeModalBtn").addEventListener("click", () => {
 });
 $("#detailModal").addEventListener("click", (event) => {
   if (event.target === $("#detailModal")) $("#closeModalBtn").click();
+});
+$("#adminSettingsBtn").addEventListener("click", () => {
+  $("#adminSettingsPanel").classList.toggle("hidden");
+});
+$("#adminModeToggle").addEventListener("change", (event) => {
+  localStorage.setItem("grassland_admin", event.target.checked ? "true" : "false");
+  updateAdminUi();
+  if (currentPage === "decisions") loadDecisionsList();
 });
 document.querySelectorAll("[data-page], [data-page-link]").forEach((btn) => {
   btn.addEventListener("click", () => switchPage(btn.dataset.page || btn.dataset.pageLink));
