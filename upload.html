@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>上报草场观察 - 草原AI协作平台</title>
+  <style>
+    /* 主题变量：与牧民端首页保持一致，便于后续统一调整品牌色 */
+    :root {
+      --bg: #FAF6EC;
+      --green: #4A7C3A;
+      --orange: #E89253;
+      --text: #253321;
+      --muted: #6A735F;
+      --card: #FFFFFF;
+      --line: #DDE6D4;
+      --soft-green: #EEF6E8;
+      --disabled: #B9BDB1;
+      --shadow: 0 10px 28px rgba(74, 124, 58, 0.14);
+    }
+
+    /* 统一盒模型，避免移动端元素被 padding 撑出屏幕 */
+    * {
+      box-sizing: border-box;
+    }
+
+    /* 页面基础样式：米白背景、较大字体、移动端优先 */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 16px;
+    }
+
+    /* 主容器最大 480px，宽屏时仍保持手机端页面宽度 */
+    .app {
+      width: min(100%, 480px);
+      margin: 0 auto;
+      padding: 16px 16px 32px;
+    }
+
+    /* 顶部导航栏：左侧返回，中间标题，右侧占位保证标题居中 */
+    .topbar {
+      display: grid;
+      grid-template-columns: 72px 1fr 72px;
+      align-items: center;
+      min-height: 52px;
+      margin-bottom: 12px;
+    }
+
+    .back-btn {
+      width: 64px;
+      min-height: 42px;
+      border: 0;
+      border-radius: 12px;
+      color: var(--green);
+      background: rgba(255, 255, 255, 0.72);
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .page-title {
+      margin: 0;
+      text-align: center;
+      color: var(--green);
+      font-size: 22px;
+      line-height: 1.3;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    /* 页面卡片通用样式：大圆角、白底、柔和阴影 */
+    .card {
+      margin-top: 16px;
+      padding: 18px;
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+
+    .section-title {
+      margin: 0 0 12px;
+      font-size: 20px;
+      line-height: 1.3;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    /* 拍照区域外层：内部 label 铺满整块区域，点击即可选择或拍照 */
+    .photo-box {
+      position: relative;
+      min-height: 220px;
+      overflow: hidden;
+      border: 2px dashed rgba(74, 124, 58, 0.55);
+      border-radius: 16px;
+      background: #FBFDF8;
+    }
+
+    .photo-box:focus-within {
+      border-color: var(--green);
+      box-shadow: 0 0 0 4px rgba(74, 124, 58, 0.12);
+    }
+
+    /* 隐藏原生文件输入框，但保留 label 的点击触发能力 */
+    .photo-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .photo-trigger {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .photo-empty {
+      display: grid;
+      place-items: center;
+      gap: 10px;
+      padding: 24px;
+      text-align: center;
+      color: var(--green);
+      font-weight: 900;
+    }
+
+    .photo-icon {
+      font-size: 58px;
+      line-height: 1;
+    }
+
+    .photo-text {
+      font-size: 19px;
+      line-height: 1.45;
+    }
+
+    /* 预览图铺满拍照区，选择图片后覆盖默认图标和文字 */
+    .preview-image {
+      display: none;
+      width: 100%;
+      height: 100%;
+      min-height: 220px;
+      object-fit: cover;
+    }
+
+    .photo-box.has-image .photo-empty {
+      display: none;
+    }
+
+    .photo-box.has-image .preview-image {
+      display: block;
+    }
+
+    /* 删除图片按钮：小圆形 ×，浮在图片右上角 */
+    .remove-photo {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: none;
+      width: 34px;
+      min-height: 34px;
+      border: 0;
+      border-radius: 999px;
+      color: #FFFFFF;
+      background: rgba(37, 51, 33, 0.72);
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .photo-box.has-image .remove-photo {
+      display: grid;
+      place-items: center;
+    }
+
+    /* 定位信息：两列显示纬度和经度，方便户外快速确认 */
+    .location-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .location-item {
+      padding: 12px;
+      border-radius: 12px;
+      background: #F6FAF0;
+    }
+
+    .location-label {
+      display: block;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .location-value {
+      display: block;
+      margin-top: 6px;
+      color: var(--green);
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .location-status {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-weight: 700;
+    }
+
+    /* 描述输入区：textarea 大一些，适合手机上口述后检查文字 */
+    .field-label {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 18px;
+      line-height: 1.4;
+      font-weight: 900;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 148px;
+      resize: vertical;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      color: var(--text);
+      background: #FBFDF8;
+      font: inherit;
+      line-height: 1.6;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 4px rgba(74, 124, 58, 0.12);
+    }
+
+    .counter {
+      margin-top: 8px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    /* 大按钮基础样式：全宽、圆角 12px、字号 18px */
+    .submit-btn,
+    .success-btn {
+      width: 100%;
+      min-height: 58px;
+      border: 0;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .submit-btn {
+      margin-top: 18px;
+      color: #FFFFFF;
+      background: var(--green);
+    }
+
+    .submit-btn:disabled {
+      color: #FFFFFF;
+      background: var(--disabled);
+      cursor: not-allowed;
+    }
+
+    /* 成功页默认隐藏，提交成功后用 JS 切换显示 */
+    .success-view {
+      display: none;
+      margin-top: 18px;
+      text-align: center;
+    }
+
+    .success-icon {
+      font-size: 72px;
+      line-height: 1;
+    }
+
+    .success-view h2 {
+      margin: 12px 0 16px;
+      color: var(--green);
+      font-size: 28px;
+      line-height: 1.3;
+      font-weight: 900;
+    }
+
+    .ai-card {
+      padding: 18px;
+      border-radius: 16px;
+      background: var(--soft-green);
+      text-align: left;
+      box-shadow: var(--shadow);
+    }
+
+    .ai-card h3 {
+      margin: 0 0 10px;
+      color: var(--green);
+      font-size: 21px;
+      line-height: 1.3;
+      font-weight: 900;
+    }
+
+    .ai-card p {
+      margin: 0;
+      color: var(--text);
+      line-height: 1.75;
+      white-space: pre-line;
+      font-weight: 650;
+    }
+
+    .success-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .success-btn.primary {
+      color: #FFFFFF;
+      background: var(--green);
+    }
+
+    .success-btn.secondary {
+      color: var(--green);
+      border: 2px solid var(--green);
+      background: #FFFFFF;
+    }
+
+    /* 小屏适配：成功页两个按钮上下排列，避免文字挤压 */
+    @media (max-width: 360px) {
+      .topbar {
+        grid-template-columns: 64px 1fr 64px;
+      }
+
+      .location-grid,
+      .success-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <!-- 1. 顶部导航栏：返回按钮优先调用 history.back，没有历史记录时回到首页 -->
+    <header class="topbar">
+      <button class="back-btn" type="button" onclick="goBack()">← 返回</button>
+      <h1 class="page-title">上报草场观察</h1>
+      <div aria-hidden="true"></div>
+    </header>
+
+    <!-- 表单视图：提交成功前显示，成功后整体隐藏 -->
+    <section id="formView">
+      <!-- 2. 拍照区：点击大虚线框可拍照或选择图片 -->
+      <section class="card" aria-labelledby="photoTitle">
+        <h2 id="photoTitle" class="section-title">拍照记录</h2>
+
+        <div id="photoBox" class="photo-box">
+          <input id="photoInput" class="photo-input" type="file" accept="image/*" capture="environment">
+          <label class="photo-trigger" for="photoInput">
+            <div class="photo-empty">
+              <div class="photo-icon">📸</div>
+              <div class="photo-text">点击拍照或选择图片</div>
+            </div>
+            <img id="previewImage" class="preview-image" alt="草场观察图片预览">
+          </label>
+          <button id="removePhoto" class="remove-photo" type="button" aria-label="删除图片">×</button>
+        </div>
+      </section>
+
+      <!-- 3. 位置信息卡片：进入页面后自动获取当前位置 -->
+      <section class="card" aria-labelledby="locationTitle">
+        <h2 id="locationTitle" class="section-title">📍 当前位置</h2>
+        <p id="locationStatus" class="location-status">定位中...</p>
+        <div class="location-grid">
+          <div class="location-item">
+            <span class="location-label">纬度</span>
+            <span id="latitudeText" class="location-value">--</span>
+          </div>
+          <div class="location-item">
+            <span class="location-label">经度</span>
+            <span id="longitudeText" class="location-value">--</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. 描述输入区：文字变化时实时更新字数，并决定提交按钮是否可点 -->
+      <section class="card" aria-labelledby="descTitle">
+        <label id="descTitle" class="field-label" for="descriptionInput">描述今天看到的草场情况：</label>
+        <textarea id="descriptionInput" rows="5" placeholder="比如：草还很短，返青慢；或者草长得不错..."></textarea>
+        <div id="charCounter" class="counter">已输入 0 字</div>
+      </section>
+
+      <!-- 5. 提交按钮：必须有图片或描述其中之一才启用 -->
+      <button id="submitButton" class="submit-btn" type="button" disabled>提交上报</button>
+    </section>
+
+    <!-- 提交成功页：模拟 AI 分析完成后展示 -->
+    <section id="successView" class="success-view" aria-live="polite">
+      <div class="success-icon">✅</div>
+      <h2>上报成功！</h2>
+
+      <article class="ai-card">
+        <h3>🌱 AI放牧建议</h3>
+        <p>根据你的描述，当前草场返青情况良好。建议：
+1. 控制每日放牧时间在6-8小时
+2. 优先在东侧轮牧，让西侧继续恢复
+3. 注意观察羊群采食情况，避免过度啃食</p>
+      </article>
+
+      <div class="success-actions">
+        <button class="success-btn primary" type="button" onclick="resetReport()">📸 再上报一次</button>
+        <button class="success-btn secondary" type="button" onclick="goHome()">🏠 返回首页</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /* 获取页面关键元素，后续交互都围绕这些元素更新状态 */
+    const formView = document.querySelector("#formView");
+    const successView = document.querySelector("#successView");
+    const photoBox = document.querySelector("#photoBox");
+    const photoInput = document.querySelector("#photoInput");
+    const previewImage = document.querySelector("#previewImage");
+    const removePhoto = document.querySelector("#removePhoto");
+    const locationStatus = document.querySelector("#locationStatus");
+    const latitudeText = document.querySelector("#latitudeText");
+    const longitudeText = document.querySelector("#longitudeText");
+    const descriptionInput = document.querySelector("#descriptionInput");
+    const charCounter = document.querySelector("#charCounter");
+    const submitButton = document.querySelector("#submitButton");
+
+    /* 保存当前图片的 base64 数据；为空时表示还没有选择图片 */
+    let selectedImageBase64 = "";
+
+    /*
+      返回逻辑：
+      如果用户是从首页进入，就直接返回上一页；
+      如果没有可返回历史，则跳转到 weather.html 这个首页文件。
+    */
+    function goBack() {
+      if (window.history.length > 1) {
+        history.back();
+      } else {
+        window.location.href = "weather.html";
+      }
+    }
+
+    /* 成功页的“返回首页”按钮使用同一个首页地址 */
+    function goHome() {
+      window.location.href = "weather.html";
+    }
+
+    /*
+      图片选择逻辑：
+      使用 FileReader API 把图片转成 base64，然后塞进 img 作为预览图。
+    */
+    photoInput.addEventListener("change", () => {
+      const file = photoInput.files && photoInput.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        selectedImageBase64 = reader.result;
+        previewImage.src = selectedImageBase64;
+        photoBox.classList.add("has-image");
+        updateSubmitState();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    /*
+      删除图片逻辑：
+      阻止点击冒泡，避免按下 × 后又触发外层 label 打开文件选择框。
+    */
+    removePhoto.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      selectedImageBase64 = "";
+      photoInput.value = "";
+      previewImage.removeAttribute("src");
+      photoBox.classList.remove("has-image");
+      updateSubmitState();
+    });
+
+    /*
+      定位逻辑：
+      成功时显示真实经纬度，保留 2 位小数；
+      失败或浏览器不支持时使用题目要求的默认位置。
+    */
+    function getLocation() {
+      if (!navigator.geolocation) {
+        useDefaultLocation();
+        return;
+      }
+
+      locationStatus.textContent = "定位中...";
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+
+          locationStatus.textContent = "已获取当前位置";
+          latitudeText.textContent = `${latitude.toFixed(2)}°N`;
+          longitudeText.textContent = `${longitude.toFixed(2)}°E`;
+        },
+        () => {
+          useDefaultLocation();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 60000
+        }
+      );
+    }
+
+    /* 默认位置兜底：定位失败时保证页面仍然有可用的位置信息 */
+    function useDefaultLocation() {
+      locationStatus.textContent = "定位失败，使用默认位置：43.85°N, 116.05°E";
+      latitudeText.textContent = "43.85°N";
+      longitudeText.textContent = "116.05°E";
+    }
+
+    /*
+      描述输入逻辑：
+      每次输入都更新字数统计，并判断提交按钮是否应该启用。
+    */
+    descriptionInput.addEventListener("input", () => {
+      const count = descriptionInput.value.trim().length;
+      charCounter.textContent = `已输入 ${count} 字`;
+      updateSubmitState();
+    });
+
+    /*
+      提交按钮启用条件：
+      有图片或有描述其中之一即可提交；两者都没有时保持灰色禁用。
+    */
+    function updateSubmitState() {
+      const hasImage = Boolean(selectedImageBase64);
+      const hasDescription = descriptionInput.value.trim().length > 0;
+      submitButton.disabled = !(hasImage || hasDescription);
+    }
+
+    /*
+      提交逻辑：
+      这里用 setTimeout 模拟 1.5 秒 API 调用，后续接真实接口时可替换此处。
+    */
+    submitButton.addEventListener("click", () => {
+      if (submitButton.disabled) {
+        return;
+      }
+
+      submitButton.disabled = true;
+      submitButton.textContent = "AI正在分析中...";
+
+      setTimeout(() => {
+        formView.style.display = "none";
+        successView.style.display = "block";
+      }, 1500);
+    });
+
+    /*
+      再上报一次：
+      清空图片、描述和提交按钮状态，重新显示表单区域。
+    */
+    function resetReport() {
+      selectedImageBase64 = "";
+      photoInput.value = "";
+      previewImage.removeAttribute("src");
+      photoBox.classList.remove("has-image");
+      descriptionInput.value = "";
+      charCounter.textContent = "已输入 0 字";
+      submitButton.textContent = "提交上报";
+      updateSubmitState();
+
+      successView.style.display = "none";
+      formView.style.display = "block";
+      getLocation();
+    }
+
+    /* 页面加载后立即尝试定位，并初始化提交按钮状态 */
+    getLocation();
+    updateSubmitState();
+  </script>
+</body>
+</html>
