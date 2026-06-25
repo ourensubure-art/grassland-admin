@@ -1,9 +1,9 @@
 import { supabase } from "./lib/supabase.js";
 import * as echarts from "echarts";
 import { predictNDVI, predict4Weeks } from "./utils/ndviPredict.js";
-import { getGrazingDecision } from "./utils/grazingDecision.js";
 import { computeCapacityFromNDVI, evaluateOverstocking } from "./utils/carryingCapacity.js";
-import { fetchDecisions } from "./utils/decisionApi.js";
+import { buildDecisionDraft } from "./utils/buildDecisionDraft.js";
+import { createOrUpdateDecisionDraft, fetchDecisionCounts, fetchDecisions, publishDecision } from "./utils/decisionApi.js";
 import {
   decisionTypeClass,
   decisionTypeLabel,
@@ -44,7 +44,8 @@ const state = {
   },
   decisions: {
     loading: false,
-    rows: []
+    rows: [],
+    statusFilter: "published"
   }
 };
 let ndviChart = null;
@@ -246,11 +247,16 @@ function applyAdminModeFromUrl() {
 function updateAdminUi() {
   const admin = isAdmin();
   $("#adminModeToggle").checked = admin;
+  $("#generateDraftsBtn").classList.toggle("hidden", !admin);
+  if (!admin && state.decisions.statusFilter === "draft") {
+    state.decisions.statusFilter = "published";
+  }
   $("#decisionAdminBadge").textContent = admin ? "管理员模式" : "普通模式";
   $("#decisionAdminBadge").className = admin
     ? "rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white"
     : "rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600";
   $("#decisionsListHint").textContent = admin ? "管理员模式显示全部状态，包含草稿决策。" : "普通模式仅显示已发布决策。";
+  renderDecisionFilterButtons();
 }
 
 async function initDecisionsTab() {
@@ -266,12 +272,23 @@ async function loadDecisionsList() {
   try {
     state.decisions.rows = await fetchDecisions({ admin: isAdmin() });
     renderDecisionsList();
+    await renderDecisionCounts();
   } catch (error) {
     console.error("读取决策列表失败：", error);
     setDecisionsError("决策列表读取失败，请检查网络或 Supabase 权限后重试。");
   } finally {
     state.decisions.loading = false;
     setDecisionsLoading(false);
+  }
+}
+
+async function renderDecisionCounts() {
+  try {
+    const counts = await fetchDecisionCounts();
+    $("#decisionsCount").textContent = `${filteredDecisionRows().length} 条 · 草稿 ${counts.draft} / 已发布 ${counts.published}`;
+  } catch (error) {
+    console.warn("读取决策计数失败：", error);
+    $("#decisionsCount").textContent = `${filteredDecisionRows().length} 条`;
   }
 }
 
@@ -304,7 +321,8 @@ function setDecisionsError(message) {
 }
 
 function renderDecisionsList() {
-  const rows = state.decisions.rows;
+  renderDecisionFilterButtons();
+  const rows = filteredDecisionRows();
   $("#decisionsCount").textContent = `${rows.length} 条`;
 
   if (!rows.length) {
@@ -324,9 +342,12 @@ function renderDecisionsList() {
           <h4 class="text-lg font-black leading-7 text-slate-950">${esc(decision.title)}</h4>
           <p class="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">${esc(decision.reason_summary || decision.reason_for_herder || "暂无摘要")}</p>
         </div>
-        <div class="shrink-0 rounded-md bg-slate-50 px-3 py-2 text-right">
-          <p class="text-xs font-black text-slate-500">牧场</p>
-          <p class="mt-1 text-sm font-black text-slate-900">${esc(decision.pasture_id)}</p>
+        <div class="shrink-0 space-y-2 text-right">
+          <div class="rounded-md bg-slate-50 px-3 py-2">
+            <p class="text-xs font-black text-slate-500">牧场</p>
+            <p class="mt-1 text-sm font-black text-slate-900">${esc(decision.pasture_id)}</p>
+          </div>
+          ${isAdmin() && decision.status === "draft" ? `<button class="publish-decision-btn h-9 rounded-md bg-grass-600 px-3 text-xs font-black text-white hover:bg-grass-700" data-publish-decision-id="${esc(decision.id)}">发布</button>` : ""}
         </div>
       </div>
       <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 text-sm md:grid-cols-5">
@@ -345,6 +366,76 @@ function renderDecisionsList() {
       console.log("待打开决策详情：", card.dataset.decisionId);
     });
   });
+  document.querySelectorAll("[data-publish-decision-id]").forEach((btn) => {
+    btn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await handlePublishDecision(btn.dataset.publishDecisionId);
+    });
+  });
+}
+
+function filteredDecisionRows() {
+  const filter = isAdmin() ? state.decisions.statusFilter : "published";
+  return state.decisions.rows.filter((row) => row.status === filter);
+}
+
+function renderDecisionFilterButtons() {
+  document.querySelectorAll("[data-decision-status-filter]").forEach((btn) => {
+    const filter = btn.dataset.decisionStatusFilter;
+    const active = state.decisions.statusFilter === filter;
+    btn.disabled = !isAdmin() && filter === "draft";
+    btn.classList.toggle("bg-white", active);
+    btn.classList.toggle("text-slate-950", active);
+    btn.classList.toggle("shadow-sm", active);
+    btn.classList.toggle("text-slate-500", !active);
+    btn.classList.toggle("cursor-not-allowed", btn.disabled);
+    btn.classList.toggle("opacity-40", btn.disabled);
+  });
+}
+
+async function handleGenerateDrafts() {
+  if (!isAdmin()) return;
+  $("#generateDraftsBtn").disabled = true;
+  $("#generateDraftsBtn").textContent = "生成中...";
+  setDecisionsError("");
+  try {
+    await loadPastures();
+    const pastureIds = state.ndvi.pastures.length
+      ? state.ndvi.pastures.map((pasture) => pasture.id)
+      : [state.ndvi.selectedPastureId || DEFAULT_PASTURE_ID];
+    const results = [];
+
+    for (const pastureId of pastureIds) {
+      const { latest, q, history } = await loadDecisionData(pastureId);
+      if (!latest || !q) continue;
+      const predictedNdvi = predict4Weeks(history) ?? Number(latest.ndvi_mean);
+      const draft = buildDecisionDraft({ pastureId, latest, q, history, predictedNdvi });
+      results.push(await createOrUpdateDecisionDraft({ draft, createdBy: currentUserLabel() }));
+    }
+
+    state.decisions.statusFilter = "draft";
+    await loadDecisionsList();
+    $("#decisionsStatus").className = "mb-5 rounded-lg border border-grass-200 bg-grass-50 p-4 text-grass-800";
+    $("#decisionsStatus").innerHTML = `<p class="font-black">已生成 ${results.length} 条草稿；重复生成会覆盖同牧场现有草稿。</p>`;
+  } catch (error) {
+    console.error("生成决策草稿失败：", error);
+    setDecisionsError(`生成草稿失败：${error.message || "请检查 Supabase 写入权限"}`);
+  } finally {
+    $("#generateDraftsBtn").disabled = false;
+    $("#generateDraftsBtn").textContent = "生成草稿";
+  }
+}
+
+async function handlePublishDecision(decisionId) {
+  if (!isAdmin()) return;
+  try {
+    await publishDecision({ decisionId, publishedBy: currentUserLabel() });
+    state.decisions.statusFilter = "published";
+    await loadDecisionsList();
+  } catch (error) {
+    console.error("发布决策失败：", error);
+    setDecisionsError(`发布失败：${error.message || "请检查 Supabase 更新权限"}`);
+  }
 }
 
 function pillHtml(label, classes) {
@@ -372,7 +463,8 @@ async function initDecisionTab() {
     const currentNDVI = latest.ndvi_mean == null ? null : Number(latest.ndvi_mean);
     const predictions = predictNDVI(history, 4);
     const predictedNDVI = predict4Weeks(history) ?? currentNDVI;
-    const decision = getGrazingDecision(currentNDVI, q, history);
+    const draft = buildDecisionDraft({ pastureId: selectedPastureId, latest, q, history, predictedNdvi: predictedNDVI });
+    const decision = draft.decision;
 
     renderDecisionMainCard(decision);
     renderDecisionMetrics(currentNDVI, predictedNDVI, decision.trendValue || 0, decision);
@@ -1114,6 +1206,15 @@ $("#refreshBtn").addEventListener("click", () => {
   }
 });
 $("#refreshDecisionsBtn").addEventListener("click", loadDecisionsList);
+$("#generateDraftsBtn").addEventListener("click", handleGenerateDrafts);
+document.querySelectorAll("[data-decision-status-filter]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (btn.disabled) return;
+    state.decisions.statusFilter = btn.dataset.decisionStatusFilter;
+    renderDecisionsList();
+    renderDecisionCounts();
+  });
+});
 $("#ndviPastureSelect").addEventListener("change", async (event) => {
   state.ndvi.selectedPastureId = event.target.value;
   setNdviLoading(true);

@@ -141,6 +141,7 @@
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <span id="decisionAdminBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">普通模式</span>
+              <button id="generateDraftsBtn" class="hidden h-10 rounded-md bg-grass-600 px-4 text-sm font-black text-white hover:bg-grass-700">生成草稿</button>
               <button id="refreshDecisionsBtn" class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50">刷新列表</button>
             </div>
           </div>
@@ -153,7 +154,13 @@
                 <h3 class="text-lg font-black text-slate-950">决策列表</h3>
                 <p id="decisionsListHint" class="mt-1 text-sm font-bold text-slate-500">普通模式仅显示已发布决策。</p>
               </div>
-              <span id="decisionsCount" class="rounded-full bg-grass-100 px-3 py-1 text-xs font-black text-grass-800">0 条</span>
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="rounded-md bg-slate-100 p-1">
+                  <button class="decision-filter-btn rounded px-3 py-1 text-xs font-black" data-decision-status-filter="draft">草稿</button>
+                  <button class="decision-filter-btn rounded px-3 py-1 text-xs font-black" data-decision-status-filter="published">已发布</button>
+                </div>
+                <span id="decisionsCount" class="rounded-full bg-grass-100 px-3 py-1 text-xs font-black text-grass-800">0 条</span>
+              </div>
             </div>
             <div id="decisionsList" class="grid gap-3 p-5"></div>
           </section>
