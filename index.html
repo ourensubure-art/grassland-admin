@@ -3,784 +3,337 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>草原AI协作平台</title>
-  <style>
-    :root {
-      --bg: #faf7f2;
-      --green: #16a34a;
-      --green-dark: #15803d;
-      --text: #1f2a1f;
-      --muted: #6b7280;
-      --line: #e5e7eb;
-      --card: #ffffff;
-      --soft: #ecfdf3;
-      --warn: #f59e0b;
-      --danger: #dc2626;
-      --shadow: 0 8px 22px rgba(21, 128, 61, 0.1);
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      color: var(--text);
-      background: var(--bg);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-      font-size: 16px;
-    }
-
-    button, input, textarea { font: inherit; }
-    button { min-height: 44px; border: 0; border-radius: 12px; font-weight: 800; cursor: pointer; }
-
-    #appContent {
-      width: min(100%, 480px);
-      height: 100vh;
-      margin: 0 auto;
-      overflow-y: auto;
-      padding: 18px 14px 88px;
-    }
-
-    .hidden { display: none !important; }
-    .page-title { margin: 0 0 14px; color: var(--green-dark); font-size: 28px; font-weight: 900; letter-spacing: 0; }
-    .card { margin-top: 14px; padding: 16px; border-radius: 12px; background: var(--card); box-shadow: var(--shadow); }
-    .soft-card { background: var(--soft); }
-    .section-title { margin: 0 0 12px; font-size: 20px; font-weight: 900; }
-    .muted { color: var(--muted); }
-
-    .bottom-nav {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: 64px;
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      border-top: 1px solid var(--line);
-      background: #fff;
-      z-index: 50;
-    }
-
-    .nav-btn {
-      display: grid;
-      place-items: center;
-      align-content: center;
-      gap: 2px;
-      min-height: 64px;
-      border-radius: 0;
-      color: #9ca3af;
-      background: transparent;
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .nav-btn .emoji { font-size: 24px; line-height: 1; }
-    .nav-btn.active { color: var(--green); font-weight: 900; }
-
-    .weather-form { display: grid; grid-template-columns: 1fr 88px; gap: 10px; }
-    .weather-form input, .field input, .field textarea {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #fff;
-      color: var(--text);
-      outline: none;
-    }
-    .weather-form input, .field input { height: 48px; padding: 0 12px; }
-    .field textarea { min-height: 92px; padding: 12px; resize: vertical; line-height: 1.5; }
-    .primary { color: #fff; background: var(--green); }
-    .secondary { color: var(--green-dark); border: 2px solid var(--green); background: #fff; }
-
-    .current-weather { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
-    .temp { color: var(--green-dark); font-size: 64px; line-height: 1; font-weight: 900; }
-    .weather-desc { font-size: 24px; font-weight: 900; }
-    .detail-grid, .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-    .detail, .summary-item { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
-    .detail span, .summary-item span { display: block; color: var(--muted); font-size: 13px; font-weight: 800; }
-    .detail strong, .summary-item strong { display: block; margin-top: 5px; color: var(--green-dark); font-size: 19px; font-weight: 900; }
-    .warning-card { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
-    .forecast-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .forecast-day { padding: 12px 8px; border-radius: 12px; background: #fff; text-align: center; border: 1px solid var(--line); }
-    .chart { width: 100%; height: 160px; }
-
-    .daily-hero {
-      padding: 18px;
-      border-radius: 12px;
-      color: #fff;
-      background: linear-gradient(135deg, var(--green-dark), var(--green));
-      box-shadow: var(--shadow);
-    }
-    .progress-track { height: 14px; overflow: hidden; border-radius: 999px; background: #e5e7eb; }
-    .daily-hero .progress-track { background: rgba(255,255,255,.3); }
-    .progress-fill { height: 100%; width: 0; border-radius: inherit; background: var(--green); transition: width .2s; }
-    .daily-hero .progress-fill { background: #bbf7d0; }
-    .progress-fill.gold { background: #facc15; }
-    .period-card { border: 2px solid transparent; }
-    .period-card.current { border-color: var(--green); }
-    .period-head { display: flex; justify-content: space-between; gap: 10px; }
-    .badge { display: inline-flex; padding: 5px 9px; border-radius: 999px; color: #fff; background: var(--green); font-size: 12px; font-weight: 900; }
-    .task-list { display: grid; gap: 8px; }
-    .task-row { display: grid; grid-template-columns: 36px 1fr 34px; gap: 8px; align-items: center; min-height: 44px; border-radius: 12px; background: #f9fafb; }
-    .task-row.done .task-text { opacity: .5; text-decoration: line-through; }
-    .icon-btn { color: var(--green-dark); background: transparent; font-size: 18px; }
-    .add-input { display: none; margin-top: 10px; }
-    .add-input.show { display: block; }
-
-    .livestock-card, .area-card, .report-card {
-      position: relative;
-      margin-top: 10px;
-      padding: 14px;
-      border-radius: 12px;
-      background: #fff;
-      box-shadow: var(--shadow);
-    }
-    .livestock-card { display: grid; grid-template-columns: 46px 1fr; gap: 12px; }
-    .big-emoji { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: var(--soft); font-size: 28px; }
-    .name { font-size: 20px; font-weight: 900; }
-    .count { margin-top: 4px; color: var(--green-dark); font-size: 22px; font-weight: 900; }
-    .health { display: inline-flex; margin-top: 8px; padding: 4px 10px; border-radius: 999px; color: #fff; background: var(--green); font-size: 13px; font-weight: 900; }
-    .health.watch { color: #422006; background: #fde68a; }
-    .health.sick { background: var(--danger); }
-    .more { position: absolute; top: 8px; right: 8px; width: 34px; min-height: 34px; color: var(--green); background: #f0fdf4; }
-    .menu { position: absolute; top: 44px; right: 8px; display: none; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: var(--shadow); z-index: 4; }
-    .menu.open { display: block; }
-    .menu button { display: block; width: 112px; border-radius: 0; background: #fff; text-align: left; padding: 0 14px; font-size: 15px; }
-
-    .area-card { border: 1px solid #d9f99d; background: #f7fee7; }
-    .area-card.pen { border-color: #fed7aa; background: #fff7ed; }
-    .area-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-    .area-actions.single { grid-template-columns: 1fr; }
-    .unassigned { border: 2px dashed #d1d5db; background: rgba(255,255,255,.65); }
-
-    .observe-upload { display: none; }
-    .observe-upload.open { display: block; }
-    .photo-box { min-height: 180px; display: grid; place-items: center; border: 2px dashed #bbf7d0; border-radius: 12px; background: #fff; text-align: center; color: var(--green-dark); font-weight: 900; }
-    .preview, .thumb { width: 100%; object-fit: cover; border-radius: 12px; }
-    .preview { display: none; max-height: 220px; margin-top: 10px; }
-    .preview.show { display: block; }
-    .report-card { display: grid; grid-template-columns: 82px 1fr; gap: 12px; }
-    .thumb { height: 82px; background: #f3f4f6; }
-
-    .profile-map { min-height: 160px; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(135deg, #dcfce7, #fef3c7); color: var(--green-dark); font-weight: 900; }
-    .settings-row { display: grid; gap: 10px; }
-
-    .modal-backdrop { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.45); z-index: 80; }
-    .modal-backdrop.open { display: flex; }
-    .modal { width: min(100%, 448px); max-height: calc(100vh - 32px); overflow: auto; padding: 16px; border-radius: 12px; background: #fff; }
-    .modal h2 { margin: 0 0 12px; color: var(--green-dark); }
-    .field { margin-top: 12px; }
-    .field label, .field-title { display: block; margin-bottom: 8px; font-weight: 900; }
-    .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .choice.selected { color: #fff; background: var(--green); }
-    .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
-    .checkbox-list { display: grid; gap: 8px; max-height: 220px; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: 12px; }
-    .checkbox-list label { display: flex; gap: 10px; align-items: center; min-height: 40px; }
-
-    .decision-subtitle { margin: -4px 0 14px; color: var(--muted); font-size: 15px; font-weight: 700; }
-    .decision-banner { display: grid; align-items: center; min-height: 56px; padding: 0 14px; border-radius: 12px; font-size: 16px; font-weight: 900; }
-    .decision-banner.unread { color: #dc2626; background: #fee2e2; }
-    .decision-banner.clear { color: #059669; background: #d1fae5; }
-    .decision-list { display: grid; gap: 12px; margin-top: 12px; }
-    .decision-card { width: 100%; min-height: 116px; padding: 16px; border-radius: 12px; background: #fff; box-shadow: var(--shadow); text-align: left; transition: background .15s; }
-    .decision-card:active { background: #f3f4f6; }
-    .decision-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .risk-badge { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; font-size: 13px; font-weight: 900; }
-    .risk-high { color: #dc2626; background: #fee2e2; }
-    .risk-medium { color: #ea580c; background: #fed7aa; }
-    .risk-low { color: #059669; background: #d1fae5; }
-    .ack-dot { color: #dc2626; font-size: 18px; line-height: 1; }
-    .ack-check { color: #059669; font-size: 20px; font-weight: 900; line-height: 1; }
-    .decision-title { margin: 12px 0 6px; color: var(--text); font-size: 18px; font-weight: 900; line-height: 1.35; }
-    .decision-meta { margin: 0; color: var(--muted); font-size: 15px; font-weight: 700; line-height: 1.5; }
-    .decision-empty { min-height: 46vh; display: grid; place-items: center; color: var(--muted); text-align: center; line-height: 1.6; }
-    .decision-empty .emoji { display: block; margin-bottom: 10px; font-size: 46px; }
-    .skeleton { overflow: hidden; position: relative; min-height: 96px; border-radius: 12px; background: #eef2f0; }
-    .skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.7), transparent); animation: shimmer 1.2s infinite; }
-    @keyframes shimmer { to { transform: translateX(100%); } }
-    .detail-header { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; margin-bottom: 12px; }
-    .back-link { min-height: 42px; color: var(--green-dark); background: #ecfdf3; padding: 0 12px; }
-    .detail-titlebar { font-size: 20px; font-weight: 900; text-align: center; }
-    .detail-risk { display: flex; justify-content: center; margin: 10px 0; }
-    .decision-detail-title { margin: 8px 0; text-align: center; font-size: 22px; line-height: 1.35; font-weight: 900; }
-    .decision-reason { color: #6b7280; font-size: 14px; line-height: 1.65; }
-    .decision-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--line); }
-    .decision-info-cell { min-height: 86px; padding: 12px; background: #fff; }
-    .decision-info-cell span { display: block; color: var(--muted); font-size: 13px; font-weight: 800; }
-    .decision-info-cell strong { display: block; margin-top: 8px; font-size: 18px; font-weight: 900; line-height: 1.35; }
-    .decision-info-cell .red { color: #dc2626; font-size: 24px; }
-    .tech-box { margin-top: 14px; border-radius: 12px; background: #f9fafb; }
-    .tech-box summary { min-height: 48px; padding: 14px; font-weight: 900; cursor: pointer; }
-    .tech-box p { margin: 0; padding: 0 14px 14px; color: #6b7280; line-height: 1.65; }
-    .decision-action-wrap { position: fixed; left: 0; right: 0; bottom: 76px; z-index: 45; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
-    .decision-action { width: min(448px, 100%); min-height: 56px; border-radius: 12px; pointer-events: auto; font-size: 18px; }
-    .decision-action.done { color: #6b7280; background: #e5e7eb; cursor: not-allowed; }
-    .toast { position: fixed; left: 50%; bottom: 148px; z-index: 120; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 11px 14px; border-radius: 999px; color: #fff; background: rgba(17, 24, 39, .92); font-weight: 900; box-shadow: var(--shadow); }
-
-    @media (max-width: 360px) {
-      .weather-form, .detail-grid, .summary-grid, .choices { grid-template-columns: 1fr; }
-      .temp { font-size: 54px; }
-    }
-  </style>
-</head>
-<body>
-  <main id="appContent">
-    <section id="page-weather"></section>
-    <section id="page-tasks" class="hidden"></section>
-    <section id="page-livestock" class="hidden"></section>
-    <section id="page-observe" class="hidden"></section>
-    <section id="page-profile" class="hidden"></section>
-  </main>
-
-  <nav id="bottomNav" class="bottom-nav">
-    <button class="nav-btn active" data-tab="weather"><span class="emoji">☁️</span><span>天气</span></button>
-    <button class="nav-btn" data-tab="tasks"><span class="emoji">📅</span><span>任务</span></button>
-    <button class="nav-btn" data-tab="livestock"><span class="emoji">🐑</span><span>牲畜</span></button>
-    <button class="nav-btn" data-tab="observe"><span class="emoji">📷</span><span>观察</span></button>
-    <button class="nav-btn" data-tab="profile"><span class="emoji">👤</span><span>我的</span></button>
-  </nav>
-
-  <div id="appModal" class="modal-backdrop"></div>
-
-  <script src="./herder-config.js"></script>
+  <title>草地管理决策端</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    const QWEATHER_HOST = "me6vhh6cn3.re.qweatherapi.com";
-    const QWEATHER_KEY = "d620828c05bd441c9c516a5badb85866";
-    const $ = (sel) => document.querySelector(sel);
-    const pages = ["weather", "tasks", "livestock", "observe", "profile"];
-    const modal = $("#appModal");
-
-    // ===== 底部导航 =====
-    function switchAppTab(tab) {
-      if (!pages.includes(tab)) tab = "weather";
-      pages.forEach((name) => {
-        $(`#page-${name}`).classList.toggle("hidden", name !== tab);
-        document.querySelector(`[data-tab="${name}"]`).classList.toggle("active", name === tab);
-      });
-      localStorage.setItem("current_tab", tab);
-      if (tab !== "tasks") removeDecisionAction();
-      if (tab === "tasks") renderTasksPage();
-      if (tab === "livestock") renderLivestockPage();
-      if (tab === "observe") renderObservePage();
-      if (tab === "profile") renderProfilePage();
-    }
-
-    $("#bottomNav").addEventListener("click", (event) => {
-      const button = event.target.closest("[data-tab]");
-      if (button) switchAppTab(button.dataset.tab);
-    });
-
-    // ===== 通用工具 =====
-    function today() {
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    }
-    function yearMonth() {
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    }
-    function loadJSON(key, fallback) {
-      const saved = localStorage.getItem(key);
-      if (!saved) {
-        localStorage.setItem(key, JSON.stringify(fallback));
-        return structuredClone(fallback);
-      }
-      try { return JSON.parse(saved); } catch { return structuredClone(fallback); }
-    }
-    function saveJSON(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
-    function esc(text) {
-      return String(text ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-    }
-    function openModal(html) { modal.innerHTML = `<section class="modal">${html}</section>`; modal.classList.add("open"); }
-    function closeModal() { modal.classList.remove("open"); modal.innerHTML = ""; }
-    modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
-
-    // ===== 天气页 =====
-    let lastWeather = null;
-    function weatherIcon(text) {
-      if (/雷/.test(text)) return "⛈️";
-      if (/雨/.test(text)) return "🌧️";
-      if (/雪/.test(text)) return "❄️";
-      if (/云|阴/.test(text)) return "⛅";
-      return "☀️";
-    }
-    function grazingAdvice(now) {
-      const t = Number(now.temp);
-      const wind = Number(String(now.windScale || "0").match(/\d+/)?.[0] || 0);
-      if (t < -10) return "🥶 极端天气，加强照看";
-      if (t > 30) return "🥵 极端天气，加强照看";
-      if (wind >= 6) return "💨 风力较大，注意安全";
-      if (/雨|雪|雷/.test(now.text)) return "⚠️ 不建议放牧，注意牲畜防寒/防雨";
-      if (/晴|多云/.test(now.text) && t >= 5 && t <= 25) return "☀️ 适合放牧";
-      return "请结合草场情况谨慎放牧";
-    }
-    async function qweather(path, params) {
-      const url = new URL(`https://${QWEATHER_HOST}${path}`);
-      url.search = new URLSearchParams({ ...params, key: QWEATHER_KEY });
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("天气服务暂时不可用");
-      const data = await res.json();
-      if (data.code !== "200") throw new Error("天气查询失败，请稍后再试");
-      return data;
-    }
-    async function findPlace(name) {
-      const data = await qweather("/geo/v2/city/lookup", { location: name });
-      if (!data.location?.length) throw new Error("未找到该地点，请尝试更详细的地名");
-      return data.location[0];
-    }
-    async function loadWeather(city = "锡林浩特") {
-      $("#weatherStatus").textContent = "查询中...";
-      try {
-        const place = await findPlace(city.trim());
-        const loc = `${Number(place.lon).toFixed(2)},${Number(place.lat).toFixed(2)}`;
-        const [now, daily3, daily7, hourly, warning] = await Promise.all([
-          qweather("/v7/weather/now", { location: loc }),
-          qweather("/v7/weather/3d", { location: loc }).catch(() => ({ daily: [] })),
-          qweather("/v7/weather/7d", { location: loc }).catch(() => ({ daily: [] })),
-          qweather("/v7/weather/24h", { location: loc }).catch(() => ({ hourly: [] })),
-          qweather("/v7/warning/now", { location: loc }).catch(() => ({ warning: [] }))
-        ]);
-        lastWeather = { place, now: now.now, daily3: daily3.daily || [], daily7: daily7.daily || [], hourly: hourly.hourly || [], warning: warning.warning || [] };
-        renderWeatherData();
-      } catch (error) {
-        $("#weatherStatus").textContent = error.message;
-      }
-    }
-    function renderWeatherPage() {
-      $("#page-weather").innerHTML = `
-        <form class="weather-form" id="weatherForm">
-          <input id="cityInput" value="锡林浩特" placeholder="输入地点">
-          <button class="primary">查询</button>
-        </form>
-        <div id="weatherRoot"></div>
-        <p id="weatherStatus" class="muted"></p>`;
-      $("#weatherForm").addEventListener("submit", (e) => { e.preventDefault(); loadWeather($("#cityInput").value); });
-      loadWeather($("#cityInput").value);
-    }
-    function renderWeatherData() {
-      const w = lastWeather, now = w.now, advice = grazingAdvice(now);
-      const warn = w.warning?.length ? `<section class="card warning-card"><h2 class="section-title">⚠️ 天气预警</h2>${w.warning.map(x => `<p><b>${esc(x.title || x.typeName || "天气预警")}</b><br>${esc(x.text || "")}</p>`).join("")}</section>` : "";
-      $("#weatherRoot").innerHTML = `
-        <section class="card">
-          <div class="current-weather">
-            <div class="temp">${now.temp}°C</div>
-            <div><div class="weather-desc">${weatherIcon(now.text)} ${now.text}</div><p class="muted">${esc(w.place.name)} ${esc(w.place.adm2 || "")} ${esc(w.place.adm1 || "")}</p><b>${advice}</b></div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail"><span>风向风力</span><strong>${now.windDir} ${now.windScale}级</strong></div>
-            <div class="detail"><span>湿度</span><strong>${now.humidity}%</strong></div>
-            <div class="detail"><span>体感温度</span><strong>${now.feelsLike}°C</strong></div>
-            <div class="detail"><span>更新时间</span><strong>${(now.obsTime || "").slice(11,16)}</strong></div>
-          </div>
-        </section>${warn}
-        <section class="card"><h2 class="section-title">📅 未来 3 天预报</h2><div class="forecast-3">${w.daily3.slice(0,3).map((d,i)=>`<div class="forecast-day"><b>${["今天","明天","后天"][i] || d.fxDate}</b><div style="font-size:28px">${weatherIcon(d.textDay)}</div><div>${d.tempMax}°/${d.tempMin}°</div></div>`).join("")}</div></section>
-        <section class="card"><h2 class="section-title">🌡️ 气温曲线</h2>${lineChart(w.hourly.length ? w.hourly : w.daily3)}</section>
-        <section class="card"><h2 class="section-title">📊 本周天气趋势</h2>${barChart(w.daily7.slice(0,7))}</section>`;
-      $("#weatherStatus").textContent = "";
-    }
-    function lineChart(source) {
-      if (!source.length) return `<p class="muted">暂无气温数据</p>`;
-      const hourly = source[0]?.fxTime ? source : [];
-      const dayLabels = ["今天", "明天", "后天"];
-      const points = hourly.length ? [0, 6, 12, 18, 24].map((hour) => {
-        const match = hourly.reduce((best, item) => {
-          const itemHour = new Date(item.fxTime).getHours();
-          const diff = Math.abs((hour === 24 ? 23 : hour) - itemHour);
-          return !best || diff < best.diff ? { item, diff } : best;
-        }, null).item;
-        return { label: `${hour}时`, temp: Number(match.temp) };
-      }) : source.slice(0, 3).map((item, index) => ({
-        label: dayLabels[index] || (item.fxDate || "").slice(5),
-        temp: Number(item.temp || item.tempMax)
-      }));
-      const values = points.map((p) => p.temp);
-      const min = Math.min(...values), max = Math.max(...values), span = Math.max(1, max - min);
-      const chartLeft = 26, chartRight = 314, baseY = 126, topY = 28;
-      const pts = points.map((p, i) => {
-        const x = chartLeft + i * ((chartRight - chartLeft) / (points.length - 1));
-        const y = baseY - ((p.temp - min) / span) * (baseY - topY);
-        return `${x},${y}`;
-      }).join(" ");
-      const labels = points.map((p, i) => {
-        const x = chartLeft + i * ((chartRight - chartLeft) / (points.length - 1));
-        return `<text x="${x - 12}" y="150" fill="#6b7280" font-size="11">${p.label}</text>`;
-      }).join("");
-      const tempLabels = points.map((p, i) => {
-        const x = chartLeft + i * ((chartRight - chartLeft) / (points.length - 1));
-        const y = baseY - ((p.temp - min) / span) * (baseY - topY);
-        return `<text x="${x - 8}" y="${y - 8}" fill="#15803d" font-size="11" font-weight="700">${p.temp}°</text>`;
-      }).join("");
-      return `<svg class="chart" viewBox="0 0 340 160"><polygon points="${chartLeft},136 ${pts} ${chartRight},136" fill="#dcfce7"/><polyline points="${pts}" fill="none" stroke="#15803d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${tempLabels}${labels}</svg>`;
-    }
-    function barChart(days) {
-      if (!days.length) return `<p class="muted">暂无趋势数据</p>`;
-      const temps = days.flatMap((d) => [Number(d.tempMax), Number(d.tempMin)]);
-      const min = Math.min(...temps), max = Math.max(...temps), span = Math.max(1, max - min);
-      return `<svg class="chart" viewBox="0 0 340 170">${days.map((d,i)=>{
-        const x=18+i*45, maxTemp=Number(d.tempMax), minTemp=Number(d.tempMin);
-        const maxH=28+((maxTemp-min)/span)*76, minH=28+((minTemp-min)/span)*76;
-        const maxY=126-maxH, minY=126-minH;
-        return `<text x="${x-1}" y="${maxY-6}" font-size="9" fill="#6b7280">${maxTemp}°</text><text x="${x+20}" y="${minY-6}" font-size="9" fill="#6b7280">${minTemp}°</text><rect x="${x}" y="${maxY}" width="14" height="${maxH}" rx="5" fill="#16a34a"/><rect x="${x+18}" y="${minY}" width="14" height="${minH}" rx="5" fill="#bbf7d0"/><text x="${x-2}" y="152" font-size="10" fill="#6b7280">${(d.fxDate||"").slice(5)}</text>`;
-      }).join("")}<text x="18" y="166" font-size="10" fill="#16a34a">深绿=最高温 浅绿=最低温</text></svg>`;
-    }
-
-    // ===== 任务页 =====
-    /** @typedef {{id:string,pasture_id:string,status:string,title:string,reason:string,risk_level:"high"|"medium"|"low",ndvi_current:number,ndvi_forecast:number,local_level:string,trend:string,confidence:number,rest_days:number,start_date:string,end_date:string,created_at:string,published_at:string}} Decision */
-    /** @typedef {{id:string,decision_id:string,herder_id:string,pasture_id:string,feedback_type:"acknowledged",created_at:string}} DecisionFeedback */
-    const HERDER_CONFIG = window.HERDER_CONFIG || {};
-    const HERDER_ID = HERDER_CONFIG.HERDER_ID || "herder_demo";
-    const PASTURE_ID = HERDER_CONFIG.PASTURE_ID || "pasture_001";
-    const SUPABASE_URL = HERDER_CONFIG.SUPABASE_URL || "";
-    const SUPABASE_ANON_KEY = HERDER_CONFIG.SUPABASE_ANON_KEY || "";
-    let taskRoute = { mode: "list", decisionId: "" };
-    let decisionCache = { decisions: [], feedback: [] };
-
-    async function supabaseRest(path, options = {}) {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-        throw new Error("缺少 Supabase 配置，请检查 herder-config.js");
-      }
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-        ...options,
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json",
-          Prefer: options.prefer || "",
-          ...(options.headers || {})
-        }
-      });
-      if (!response.ok) {
-        const message = await response.text();
-        const error = new Error(message || `Supabase 请求失败：${response.status}`);
-        error.status = response.status;
-        throw error;
-      }
-      if (response.status === 204) return null;
-      return response.json();
-    }
-
-    async function fetchPublishedDecisions() {
-      const select = "select=*";
-      const filters = `status=eq.published&pasture_id=eq.${encodeURIComponent(PASTURE_ID)}&order=published_at.desc`;
-      return supabaseRest(`decisions?${select}&${filters}`);
-    }
-
-    async function fetchDecisionFeedback(decisionIds = []) {
-      if (!decisionIds.length) return [];
-      const ids = decisionIds.map((id) => encodeURIComponent(id)).join(",");
-      const query = [
-        "select=*",
-        `herder_id=eq.${encodeURIComponent(HERDER_ID)}`,
-        "feedback_type=eq.acknowledged",
-        `decision_id=in.(${ids})`
-      ].join("&");
-      return supabaseRest(`decision_feedback?${query}`);
-    }
-
-    async function fetchDecisionDetail(decisionId) {
-      const decisionRows = await supabaseRest(`decisions?select=*&id=eq.${encodeURIComponent(decisionId)}&limit=1`);
-      if (!decisionRows.length) throw new Error("未找到该决策");
-      const feedbackRows = await supabaseRest([
-        "decision_feedback?select=*",
-        `decision_id=eq.${encodeURIComponent(decisionId)}`,
-        `herder_id=eq.${encodeURIComponent(HERDER_ID)}`,
-        "feedback_type=eq.acknowledged",
-        "limit=1"
-      ].join("&"));
-      return { decision: decisionRows[0], feedback: feedbackRows[0] || null };
-    }
-
-    function renderTasksPage() {
-      if (taskRoute.mode === "detail" && taskRoute.decisionId) {
-        renderDecisionDetail(taskRoute.decisionId);
-        return;
-      }
-      renderDecisionList();
-    }
-
-    async function renderDecisionList() {
-      $("#page-tasks").innerHTML = `
-        <section>
-          <h1 class="section-title" style="font-size:20px">📅 任务</h1>
-          <p class="decision-subtitle">来自合作社的放牧安排</p>
-          <div class="skeleton"></div>
-          <div class="skeleton" style="margin-top:12px"></div>
-        </section>`;
-      try {
-        const decisions = await fetchPublishedDecisions();
-        const feedback = await fetchDecisionFeedback(decisions.map((item) => item.id));
-        decisionCache = { decisions, feedback };
-        const acknowledged = new Set(feedback.map((item) => item.decision_id));
-        const unreadCount = decisions.filter((item) => !acknowledged.has(item.id)).length;
-        const banner = unreadCount > 0
-          ? `<div class="decision-banner unread">🔴 您有 ${unreadCount} 条新放牧决策待查看</div>`
-          : `<div class="decision-banner clear">✅ 暂无未读决策</div>`;
-        const body = decisions.length
-          ? `<div class="decision-list">${decisions.map((item) => decisionCard(item, acknowledged.has(item.id))).join("")}</div>`
-          : `<div class="decision-empty"><div><span class="emoji">🌾</span><div>暂无放牧安排，请关注后续通知</div></div></div>`;
-        $("#page-tasks").innerHTML = `
-          <section>
-            <h1 class="section-title" style="font-size:20px">📅 任务</h1>
-            <p class="decision-subtitle">来自合作社的放牧安排</p>
-            ${banner}
-            ${body}
-          </section>`;
-      } catch (error) {
-        $("#page-tasks").innerHTML = `
-          <section class="card">
-            <h1 class="section-title">📅 任务</h1>
-            <p class="decision-subtitle">来自合作社的放牧安排</p>
-            <p class="muted">${esc(error.message || "加载失败")}</p>
-            <button class="primary" style="width:100%" onclick="renderDecisionList()">重新加载</button>
-          </section>`;
-      }
-    }
-
-    function decisionCard(decision, acknowledged) {
-      return `
-        <button class="decision-card" onclick="openDecisionDetail('${decision.id}')">
-          <div class="decision-card-top">
-            ${riskBadge(decision.risk_level)}
-            <span class="${acknowledged ? "ack-check" : "ack-dot"}">${acknowledged ? "✓" : "●"}</span>
-          </div>
-          <h2 class="decision-title">${esc(decision.title || "放牧决策")}</h2>
-          <p class="decision-meta">📅 ${formatDate(decision.start_date)} 至 ${formatDate(decision.end_date)}</p>
-          <p class="decision-meta">${relativeTime(decision.published_at || decision.created_at)}</p>
-        </button>`;
-    }
-
-    function openDecisionDetail(decisionId) {
-      taskRoute = { mode: "detail", decisionId };
-      history.pushState({ tab: "tasks", decisionId }, "", `#/task/${decisionId}`);
-      switchAppTab("tasks");
-    }
-
-    function backToDecisionList() {
-      taskRoute = { mode: "list", decisionId: "" };
-      history.pushState({ tab: "tasks" }, "", "#/tasks");
-      removeDecisionAction();
-      switchAppTab("tasks");
-    }
-
-    async function renderDecisionDetail(decisionId) {
-      $("#page-tasks").innerHTML = `
-        <div class="detail-header">
-          <button class="back-link" onclick="backToDecisionList()">← 返回任务列表</button>
-          <div class="detail-titlebar">决策详情</div>
-        </div>
-        <div class="skeleton"></div>
-        <div class="skeleton" style="margin-top:12px"></div>`;
-      removeDecisionAction();
-      try {
-        const { decision, feedback } = await fetchDecisionDetail(decisionId);
-        $("#page-tasks").innerHTML = decisionDetailHtml(decision, feedback);
-        renderDecisionAction(decision, feedback);
-      } catch (error) {
-        $("#page-tasks").innerHTML = `
-          <div class="detail-header">
-            <button class="back-link" onclick="backToDecisionList()">← 返回任务列表</button>
-            <div class="detail-titlebar">决策详情</div>
-          </div>
-          <section class="card">
-            <p class="muted">${esc(error.message || "查询失败")}</p>
-            <button class="primary" style="width:100%" onclick="backToDecisionList()">返回</button>
-          </section>`;
-      }
-    }
-
-    function decisionDetailHtml(decision, feedback) {
-      return `
-        <div class="detail-header">
-          <button class="back-link" onclick="backToDecisionList()">← 返回任务列表</button>
-          <div class="detail-titlebar">决策详情</div>
-        </div>
-        <section class="card" style="padding-bottom:92px">
-          <div class="detail-risk">${riskBadge(decision.risk_level, true)}</div>
-          <h1 class="decision-detail-title">${esc(decision.title || "放牧决策")}</h1>
-          <p class="decision-reason">${esc(decision.reason || "暂无说明")}</p>
-          <div class="decision-info-grid">
-            <div class="decision-info-cell"><span>执行日期</span><strong>${formatDate(decision.start_date)}<br>至<br>${formatDate(decision.end_date)}</strong></div>
-            <div class="decision-info-cell"><span>建议休牧天数</span><strong class="red">${decision.rest_days ?? "-"} 天</strong></div>
-            <div class="decision-info-cell"><span>当前 NDVI</span><strong>${formatNumber(decision.ndvi_current)}</strong></div>
-            <div class="decision-info-cell"><span>预测 NDVI</span><strong>${formatNumber(decision.ndvi_forecast)}</strong></div>
-            <div class="decision-info-cell"><span>本地等级</span><strong>${esc(decision.local_level || "-")}</strong></div>
-            <div class="decision-info-cell"><span>趋势</span><strong>${esc(decision.trend || "-")}</strong></div>
-            <div class="decision-info-cell"><span>置信度</span><strong>${formatConfidence(decision.confidence)}</strong></div>
-            <div class="decision-info-cell"><span>确认状态</span><strong>${feedback ? "已确认" : "待确认"}</strong></div>
-          </div>
-          <details class="tech-box">
-            <summary>📊 查看技术依据</summary>
-            <p>NDVI 是反映草地植被覆盖度的指标。本次 NDVI ${formatNumber(decision.ndvi_current)}，预测值 ${formatNumber(decision.ndvi_forecast)}，本地等级为「${esc(decision.local_level || "-")}」，趋势为「${esc(decision.trend || "-")}」。综合风险等级与置信度，合作社给出了当前放牧安排，建议按日期执行并让草场恢复。</p>
-          </details>
-        </section>`;
-    }
-
-    function renderDecisionAction(decision, feedback) {
-      removeDecisionAction();
-      const wrap = document.createElement("div");
-      wrap.id = "decisionActionWrap";
-      wrap.className = "decision-action-wrap";
-      if (feedback) {
-        wrap.innerHTML = `<button class="decision-action done" disabled>✓ 已于 ${formatDateTime(feedback.created_at)} 确认</button>`;
-      } else {
-        wrap.innerHTML = `<button id="ackDecisionButton" class="decision-action primary" onclick="acknowledgeDecision('${decision.id}', '${decision.pasture_id || PASTURE_ID}')">✅ 我已知晓</button>`;
-      }
-      document.body.appendChild(wrap);
-    }
-
-    function removeDecisionAction() {
-      document.querySelector("#decisionActionWrap")?.remove();
-    }
-
-    async function acknowledgeDecision(decisionId, pastureId) {
-      const button = $("#ackDecisionButton");
-      if (button) {
-        button.disabled = true;
-        button.textContent = "确认中...";
-      }
-      try {
-        const payload = {
-          decision_id: decisionId,
-          herder_id: HERDER_ID,
-          pasture_id: pastureId || PASTURE_ID,
-          feedback_type: "acknowledged"
-        };
-        const rows = await supabaseRest("decision_feedback", {
-          method: "POST",
-          body: JSON.stringify(payload),
-          prefer: "return=representation"
-        });
-        showToast("✅ 已确认知晓");
-        renderDecisionAction({ id: decisionId, pasture_id: pastureId }, rows?.[0] || { created_at: new Date().toISOString() });
-      } catch (error) {
-        const message = String(error.message || "");
-        if (error.status === 409 || message.includes("duplicate") || message.includes("unique")) {
-          showToast("已确认过");
-          renderDecisionAction({ id: decisionId, pasture_id: pastureId }, { created_at: new Date().toISOString() });
-        } else {
-          showToast("确认失败，请稍后再试");
-          if (button) {
-            button.disabled = false;
-            button.textContent = "✅ 我已知晓";
+    // Tailwind 主题配置：保持后台界面克制、清晰，适合电脑和平板查看。
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            grass: {
+              50: "#f0fdf4",
+              100: "#dcfce7",
+              500: "#16a34a",
+              600: "#15803d",
+              700: "#166534"
+            },
+            skysoft: "#e0f2fe"
+          },
+          boxShadow: {
+            panel: "0 12px 36px rgba(15, 23, 42, 0.08)"
           }
         }
       }
-    }
-
-    function riskBadge(level, large = false) {
-      const map = {
-        high: ["高风险", "risk-high"],
-        medium: ["中风险", "risk-medium"],
-        low: ["低风险", "risk-low"]
-      };
-      const [label, cls] = map[level] || ["低风险", "risk-low"];
-      return `<span class="risk-badge ${cls}" style="${large ? "font-size:16px;min-height:34px;padding:0 14px" : ""}">${label}</span>`;
-    }
-
-    function formatDate(value) {
-      if (!value) return "-";
-      return String(value).slice(0, 10);
-    }
-
-    function formatDateTime(value) {
-      if (!value) return "-";
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime())) return String(value).slice(0, 16);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-    }
-
-    function relativeTime(value) {
-      if (!value) return "";
-      const diffMs = Date.now() - new Date(value).getTime();
-      const minutes = Math.max(1, Math.floor(diffMs / 60000));
-      if (minutes < 60) return `${minutes} 分钟前`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours} 小时前`;
-      if (hours < 48) return "昨天";
-      return `${Math.floor(hours / 24)} 天前`;
-    }
-
-    function formatNumber(value) {
-      if (value === null || value === undefined || value === "") return "-";
-      return Number(value).toFixed(3);
-    }
-
-    function formatConfidence(value) {
-      if (value === null || value === undefined || value === "") return "-";
-      const n = Number(value);
-      return `${n <= 1 ? Math.round(n * 100) : Math.round(n)}%`;
-    }
-
-    function showToast(message) {
-      document.querySelector(".toast")?.remove();
-      const toast = document.createElement("div");
-      toast.className = "toast";
-      toast.textContent = message;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 1800);
-    }
-
-    function applyTaskRouteFromLocation() {
-      const match = location.hash.match(/^#\/task\/([^/]+)$/);
-      if (match) {
-        taskRoute = { mode: "detail", decisionId: decodeURIComponent(match[1]) };
-        localStorage.setItem("current_tab", "tasks");
-        return "tasks";
-      }
-      if (location.hash === "#/tasks") {
-        taskRoute = { mode: "list", decisionId: "" };
-        localStorage.setItem("current_tab", "tasks");
-        return "tasks";
-      }
-      return localStorage.getItem("current_tab") || "weather";
-    }
-
-    window.addEventListener("popstate", () => {
-      switchAppTab(applyTaskRouteFromLocation());
-    });
-
-    // ===== 牲畜页 =====
-    const DEFAULT_LIVESTOCK=[{id:"1",category:"山羊",name:"臊胡",count:25,unit:"只",health:"健康",note:"未阉割的种公羊，配种用",createdAt:"2026-06-09"},{id:"2",category:"山羊",name:"公山羊",count:300,unit:"只",health:"健康",note:"已阉割的羯羊",createdAt:"2026-06-09"},{id:"3",category:"山羊",name:"母羊",count:300,unit:"只",health:"健康",note:"",createdAt:"2026-06-09"},{id:"4",category:"山羊",name:"单小羊",count:150,unit:"只",health:"健康",note:"",createdAt:"2026-06-09"},{id:"5",category:"山羊",name:"双胞胎小羊",count:150,unit:"对",health:"健康",note:"150对 = 300只",createdAt:"2026-06-09"},{id:"6",category:"绵羊",name:"绵羊",count:70,unit:"只",health:"健康",note:"",createdAt:"2026-06-09"},{id:"7",category:"牛",name:"牛",count:50,unit:"头",health:"健康",note:"",createdAt:"2026-06-09"}];
-    const cats=["山羊","绵羊","牛"], catEmoji={山羊:"🐐",绵羊:"🐑",牛:"🐄"};
-    function livestock(){ return loadJSON("livestock_groups",DEFAULT_LIVESTOCK); }
-    function saveLivestock(v){ saveJSON("livestock_groups",v); }
-    function animalCount(g){ return Number(g.count)*(g.unit==="对"?2:1); }
-    function renderLivestockPage(){ const data=livestock(), total=data.reduce((s,g)=>s+animalCount(g),0); $("#page-livestock").innerHTML=`<section class="card soft-card" style="margin-top:0"><div class="summary-grid"><div class="summary-item"><span>群组总数</span><strong>${data.length}</strong></div><div class="summary-item"><span>牲畜总数</span><strong>${total}</strong></div></div></section><button class="primary" style="width:100%;margin-top:14px" onclick="openLivestockForm()">+ 添加牲畜群组</button>${cats.map(c=>renderCat(c,data)).join("")}`; }
-    function renderCat(c,data){ const list=data.filter(g=>g.category===c); if(!list.length)return""; return `<section class="card"><h2 class="section-title">${catEmoji[c]} ${c}</h2>${list.map(groupCard).join("")}</section>`; }
-    function groupCard(g){ const hc=g.health==="观察中"?"watch":g.health==="患病"?"sick":""; return `<article class="livestock-card"><div class="big-emoji">${catEmoji[g.category]}</div><div><div class="name">${esc(g.name)}</div><div class="count">${g.count} ${g.unit}</div><span class="health ${hc}">${g.health}</span>${g.note?`<p class="muted">${esc(g.note)}</p>`:""}<p class="muted">${g.createdAt}</p></div><button class="more" onclick="openLivestockForm('${g.id}')">✏️</button></article>`; }
-    function openLivestockForm(id=""){ const data=livestock(), g=data.find(x=>x.id===id)||{category:"山羊",name:"",count:"",unit:"只",health:"健康",note:""}; openModal(`<h2>${id?"编辑":"添加"}牲畜群组</h2>${field("群组名称","lg-name",g.name)}${field("数量","lg-count",g.count,"number")}<div class="field"><span class="field-title">大类</span><div class="choices">${cats.map(c=>choice("lg-cat",c,g.category)).join("")}</div></div><div class="field"><span class="field-title">单位</span><div class="choices">${["只","对","头"].map(u=>choice("lg-unit",u,g.unit)).join("")}</div></div><div class="field"><span class="field-title">健康</span><div class="choices">${["健康","观察中","患病"].map(h=>choice("lg-health",h,g.health)).join("")}</div></div>${area("备注","lg-note",g.note)}<div class="modal-actions"><button class="secondary" onclick="closeModal()">取消</button><button class="primary" onclick="saveLivestockForm('${id}')">保存</button></div>`); bindChoices(); }
-    function saveLivestockForm(id){ const data=livestock(), g={id:id||String(Date.now()),category:selected("lg-cat"),name:$("#lg-name").value.trim(),count:Number($("#lg-count").value),unit:selected("lg-unit"),health:selected("lg-health"),note:$("#lg-note").value.trim(),createdAt:id?(data.find(x=>x.id===id)?.createdAt||today()):today()}; if(!g.name||!g.count)return alert("请填写名称和数量"); id?saveLivestock(data.map(x=>x.id===id?g:x)):saveLivestock([...data,g]); closeModal(); renderLivestockPage(); renderProfilePage(); }
-
-    // ===== 观察页 =====
-    function reports(){ return loadJSON("pasture_reports",[]); }
-    function renderObservePage(){ const list=reports().sort((a,b)=>String(b.id).localeCompare(String(a.id))); $("#page-observe").innerHTML=`<button id="observeToggleBtn" class="primary" style="width:100%" onclick="toggleObserveUpload()">➕ 上报新观察</button><section id="observeUpload" class="card observe-upload">${observeForm()}</section><section class="card"><h2 class="section-title">历史观察记录</h2>${list.length?list.map(reportCard).join(""):`<p class="muted">还没有观察记录</p>`}</section>`; }
-    function observeForm(){ const areas=pastures(); return `<div class="field"><label>所属牧场</label><select id="obs-area" style="width:100%;height:46px;border:1px solid var(--line);border-radius:12px">${areas.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select></div><label class="photo-box" for="obs-photo">📷<br>点击拍照或选择图片</label><input id="obs-photo" type="file" accept="image/*" style="display:none" onchange="previewObserve(event)"><img id="obs-preview" class="preview">${area("文字描述","obs-text","")}<button class="primary" style="width:100%;margin-top:12px" onclick="saveObserve()">保存观察</button>`; }
-    function toggleObserveUpload(){ const box=$("#observeUpload"); box.classList.toggle("open"); $("#observeToggleBtn").textContent = box.classList.contains("open") ? "收起上报表单" : "➕ 上报新观察"; }
-    let observePhoto=""; function previewObserve(e){ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{observePhoto=r.result; $("#obs-preview").src=observePhoto; $("#obs-preview").classList.add("show");}; r.readAsDataURL(f); }
-    function saveObserve(){ const areaId=$("#obs-area").value, a=pastures().find(x=>x.id===areaId); const data=reports(); data.push({id:String(Date.now()),areaId,areaName:a?.name||"",photoBase64:observePhoto,text:$("#obs-text").value.trim(),createdAt:today()}); saveJSON("pasture_reports",data); observePhoto=""; renderObservePage(); }
-    function reportCard(r){ return `<article class="report-card">${r.photoBase64?`<img class="thumb" src="${r.photoBase64}">`:`<div class="thumb"></div>`}<div><b>${esc(r.areaName||"牧场")}</b><p>${esc(r.text||"无文字描述")}</p><p class="muted">${r.createdAt}</p></div></article>`; }
-
-    // ===== 我的页 =====
-    const DEFAULT_PASTURES=[{id:"p1",name:"羊院子",type:"pen",direction:"",distance:0,landmark:"家",groupIds:["1"],greenProgress:0,note:"臊胡圈养，不外出",createdAt:"2026-06-09"},{id:"p2",name:"南牧场",type:"pasture",direction:"south",distance:1.2,landmark:"水井",groupIds:["2","7"],greenProgress:65,note:"每天必去，有水井",createdAt:"2026-06-09"},{id:"p3",name:"东牧场",type:"pasture",direction:"east",distance:null,landmark:"",groupIds:[],greenProgress:0,note:"",createdAt:"2026-06-09"},{id:"p4",name:"北牧场",type:"pasture",direction:"north",distance:null,landmark:"",groupIds:[],greenProgress:0,note:"",createdAt:"2026-06-09"},{id:"p5",name:"西牧场",type:"pasture",direction:"west",distance:null,landmark:"",groupIds:[],greenProgress:0,note:"",createdAt:"2026-06-09"}];
-    function pastures(){ return loadJSON("pasture_areas",DEFAULT_PASTURES); }
-    function savePastures(v){ saveJSON("pasture_areas",v); }
-    function renderProfilePage(){ const areas=pastures(), ls=livestock(), assigned=new Set(areas.flatMap(a=>a.groupIds)), total=ls.reduce((s,g)=>s+animalCount(g),0), asg=ls.filter(g=>assigned.has(g.id)).reduce((s,g)=>s+animalCount(g),0); $("#page-profile").innerHTML=`<section class="card soft-card" style="margin-top:0"><h2 class="section-title">🏡 欧仁的老家</h2><div class="summary-grid"><div class="summary-item"><span>区域数</span><strong>${areas.length}</strong></div><div class="summary-item"><span>总牲畜</span><strong>${total}</strong></div><div class="summary-item"><span>已分配</span><strong>${asg}</strong></div><div class="summary-item"><span>未分配</span><strong>${total-asg}</strong></div></div></section><section class="card"><h2 class="section-title">牧场地图</h2><div class="profile-map">北 ❄️<br>西 🌄　🏠　🌅 东<br>南 🧭</div></section>${areas.map(a=>areaCard(a,ls)).join("")}<section class="card"><h2 class="section-title">历史记录</h2>${reports().slice(-3).reverse().map(reportCard).join("")||"<p class='muted'>暂无记录</p>"}</section><section class="card settings-row"><h2 class="section-title">⚙️ 设置</h2><button class="secondary" onclick="alert('数据导出功能开发中')">数据导出</button><button class="secondary" onclick="alert('草原AI协作平台')">关于</button></section>`; }
-    function areaCard(a,ls){ const groups=a.groupIds.map(id=>ls.find(g=>g.id===id)).filter(Boolean).map(g=>`${g.name} ${g.count}`).join(" ｜ "); const prog=a.type==="pasture"?`<div class="progress-track" style="margin-top:10px"><div class="progress-fill" style="width:${a.greenProgress}%"></div></div><p class="muted">返青进度 ${a.greenProgress}%</p>`:""; return `<article class="area-card ${a.type==="pen"?"pen":""}"><h2 class="section-title">${a.type==="pen"?"🏚️":"🧭"} ${esc(a.name)}${a.landmark?`（${esc(a.landmark)}）`:""} <span class="muted" style="float:right;font-size:14px">${a.distance==null?"—":a.distance} km</span></h2><p>${groups||"（未设置群组）"}</p>${prog}<div class="area-actions ${a.type==="pen"?"single":""}">${a.type==="pasture"?`<button class="primary" onclick="switchAppTab('observe')">📷 上报观察</button>`:""}<button class="secondary" onclick="openAreaForm('${a.id}')">✏️ 编辑</button></div></article>`; }
-    function openAreaForm(id){ const areas=pastures(), a=areas.find(x=>x.id===id), ls=livestock(); openModal(`<h2>编辑区域</h2>${field("区域名称","pa-name",a.name)}<div class="field"><span class="field-title">类型</span><div class="choices">${[["pen","圈舍"],["pasture","牧场"]].map(x=>choice("pa-type",x[0],a.type,x[1])).join("")}</div></div><div class="field"><span class="field-title">方位</span><div class="choices">${[["","无"],["south","南"],["east","东"],["north","北"],["west","西"]].map(x=>choice("pa-dir",x[0],a.direction,x[1])).join("")}</div></div>${field("距离家（公里）","pa-dist",a.distance??"","number")}${field("地标说明","pa-land",a.landmark)}<div class="field"><span class="field-title">关联牲畜群组</span><div class="checkbox-list">${ls.map(g=>`<label><input type="checkbox" value="${g.id}" ${a.groupIds.includes(g.id)?"checked":""}> ${esc(g.name)} ${g.count} ${g.unit}</label>`).join("")}</div></div>${field("返青进度（%）","pa-green",a.greenProgress,"number")}${area("备注","pa-note",a.note)}<div class="modal-actions"><button class="secondary" onclick="closeModal()">取消</button><button class="primary" onclick="saveAreaForm('${id}')">保存</button></div>`); bindChoices(); }
-    function saveAreaForm(id){ const areas=pastures(), selectedIds=[...document.querySelectorAll(".checkbox-list input:checked")].map(i=>i.value); const updated=areas.map(a=>a.id===id?{...a,name:$("#pa-name").value.trim(),type:selected("pa-type"),direction:selected("pa-dir"),distance:$("#pa-dist").value===""?null:Number($("#pa-dist").value),landmark:$("#pa-land").value.trim(),groupIds:selectedIds,greenProgress:Number($("#pa-green").value)||0,note:$("#pa-note").value.trim() }:{...a,groupIds:a.groupIds.filter(g=>!selectedIds.includes(g))}); savePastures(updated); closeModal(); renderProfilePage(); }
-
-    // ===== 表单小工具 =====
-    function field(label,id,value="",type="text"){ return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type}" value="${esc(value)}"></div>`; }
-    function area(label,id,value=""){ return `<div class="field"><label for="${id}">${label}</label><textarea id="${id}">${esc(value)}</textarea></div>`; }
-    function choice(group,value,current,label=value){ return `<button class="choice ${value===current?"selected":""}" type="button" data-group="${group}" data-value="${value}">${label}</button>`; }
-    function bindChoices(){ document.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{document.querySelectorAll(`[data-group="${b.dataset.group}"]`).forEach(x=>x.classList.remove("selected")); b.classList.add("selected");}); }
-    function selected(group){ return document.querySelector(`[data-group="${group}"].selected`)?.dataset.value || ""; }
-
-    renderWeatherPage();
-    renderTasksPage();
-    renderLivestockPage();
-    renderObservePage();
-    renderProfilePage();
-    switchAppTab(applyTaskRouteFromLocation());
+    };
   </script>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+  <div id="appView" class="min-h-screen">
+    <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
+        <div>
+          <p class="text-xs font-black uppercase tracking-wide text-grass-600">Grassland Command</p>
+          <h1 class="text-xl font-black tracking-normal text-slate-950 md:text-2xl">草地管理决策端</h1>
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <button id="refreshBtn" class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50">刷新</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="mx-auto grid max-w-7xl gap-5 px-5 py-5 lg:grid-cols-[240px_1fr]">
+      <aside class="rounded-lg bg-white p-3 shadow-panel lg:sticky lg:top-24 lg:h-[calc(100vh-7rem)]">
+        <nav class="grid grid-cols-2 gap-2 lg:grid-cols-1">
+          <button class="nav-btn bg-grass-600 text-white" data-page="decision">🏠 决策总览</button>
+          <button class="nav-btn text-slate-700 hover:bg-slate-100" data-page="decisions">📣 决策发布</button>
+          <button class="nav-btn text-slate-700 hover:bg-slate-100" data-page="ndvi">📊 NDVI 分析</button>
+          <button class="nav-btn text-slate-700 hover:bg-slate-100" data-page="overview">📋 草情记录</button>
+          <button class="nav-btn text-slate-700 hover:bg-slate-100" data-page="map">🗺️ 地图</button>
+        </nav>
+      </aside>
+
+      <main class="min-w-0">
+        <section id="decisionPage">
+          <div id="decisionMainCard" class="rounded-xl shadow-md p-6 mb-6 transition-all">
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow-sm p-4">
+              <div class="text-sm text-gray-500 mb-1">当前 NDVI</div>
+              <div id="metricCurrentNDVI" class="text-3xl font-bold text-gray-800">--</div>
+              <div id="metricCurrentLabel" class="text-xs mt-1">--</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4">
+              <div class="text-sm text-gray-500 mb-1">4 周后预测</div>
+              <div id="metricPredictedNDVI" class="text-3xl font-bold text-gray-800">--</div>
+              <div id="metricTrend" class="text-xs mt-1">--</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4">
+              <div class="text-sm text-gray-500 mb-1">风险等级</div>
+              <div id="metricRiskLevel" class="text-3xl font-bold">--</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4">
+              <div class="text-sm text-gray-500 mb-1">决策置信度</div>
+              <div id="metricConfidence" class="text-3xl font-bold text-gray-800">--</div>
+              <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div id="metricConfidenceBar" class="bg-green-500 h-2 rounded-full" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <div class="mb-5 flex items-center justify-between gap-3">
+              <h3 class="text-lg font-semibold text-gray-800">🌾 草地承载力评估</h3>
+              <span id="capacityStatusBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">待计算</span>
+            </div>
+            <div class="grid gap-4 md:grid-cols-3">
+              <div class="rounded-lg bg-slate-50 p-4">
+                <div class="text-sm text-gray-500 mb-1">当前生物量 AGB</div>
+                <div id="capacityAgb" class="text-2xl font-black text-slate-900">-- kg/ha</div>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-4">
+                <div class="text-sm text-gray-500 mb-1">可利用生物量</div>
+                <div id="capacityUsableAgb" class="text-2xl font-black text-slate-900">-- kg/ha</div>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-4">
+                <div class="text-sm text-gray-500 mb-1">理论载畜量</div>
+                <div id="capacityMonthly" class="text-2xl font-black text-slate-900">-- 羊单位/月</div>
+              </div>
+            </div>
+            <div class="my-5 border-t border-slate-200"></div>
+            <div class="grid gap-4 md:grid-cols-[240px_1fr_1fr] md:items-end">
+              <label class="block">
+                <span class="mb-2 block text-sm font-black text-slate-700">实际放牧密度</span>
+                <input id="actualStockingInput" type="number" min="0" step="0.1" value="1.0" class="h-11 w-full rounded-md border border-slate-300 px-3 text-sm font-bold text-slate-900 outline-none focus:border-grass-600 focus:ring-4 focus:ring-grass-100">
+                <span class="mt-1 block text-xs font-bold text-slate-500">羊单位/公顷/月</span>
+              </label>
+              <div class="rounded-lg bg-slate-50 p-4">
+                <div class="text-sm text-gray-500 mb-1">超载率</div>
+                <div id="overstockRatio" class="text-2xl font-black text-slate-900">--</div>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-4">
+                <div class="text-sm text-gray-500 mb-1">评估</div>
+                <div id="overstockMessage" class="text-base font-black text-slate-900">--</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold text-gray-800">NDVI 预测预览</h3>
+              <button id="goToNdviBtn" class="text-sm text-green-600 hover:underline">查看详细分析 →</button>
+            </div>
+            <div id="decisionMiniChart" style="width:100%;height:240px;"></div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">决策依据</h3>
+            <ul id="decisionTriggers" class="space-y-2"></ul>
+          </div>
+        </section>
+
+        <section id="decisionsPage" class="hidden">
+          <div class="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 class="text-2xl font-black tracking-normal text-slate-950">决策发布</h2>
+              <p class="mt-1 text-sm text-slate-600">查看草地放牧决策、发布状态和执行反馈。</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="decisionAdminBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">普通模式</span>
+              <button id="generateDraftsBtn" class="hidden h-10 rounded-md bg-grass-600 px-4 text-sm font-black text-white hover:bg-grass-700">生成草稿</button>
+              <button id="refreshDecisionsBtn" class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50">刷新列表</button>
+            </div>
+          </div>
+
+          <div id="decisionsStatus" class="mb-5 hidden"></div>
+
+          <section class="rounded-lg bg-white shadow-panel">
+            <div class="flex flex-col gap-2 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 class="text-lg font-black text-slate-950">决策列表</h3>
+                <p id="decisionsListHint" class="mt-1 text-sm font-bold text-slate-500">普通模式仅显示已发布决策。</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="rounded-md bg-slate-100 p-1">
+                  <button class="decision-filter-btn rounded px-3 py-1 text-xs font-black" data-decision-status-filter="draft">草稿</button>
+                  <button class="decision-filter-btn rounded px-3 py-1 text-xs font-black" data-decision-status-filter="published">已发布</button>
+                </div>
+                <span id="decisionsCount" class="rounded-full bg-grass-100 px-3 py-1 text-xs font-black text-grass-800">0 条</span>
+              </div>
+            </div>
+            <div id="decisionsList" class="grid gap-3 p-5"></div>
+          </section>
+        </section>
+
+        <section id="overviewPage" class="hidden">
+          <div class="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 class="text-2xl font-black tracking-normal text-slate-950">草情记录</h2>
+              <p class="mt-1 text-sm text-slate-600">汇总牧民端观察上报，用于快速判断草场动态。</p>
+            </div>
+            <p id="updatedAt" class="text-sm font-bold text-slate-500"></p>
+          </div>
+
+          <div id="overviewStatus" class="mb-5 hidden"></div>
+
+          <div class="grid gap-4 md:grid-cols-3">
+            <article class="rounded-lg bg-white p-5 shadow-panel">
+              <p class="text-sm font-black text-slate-500">总观察数</p>
+              <strong id="totalCount" class="mt-3 block text-4xl font-black tracking-normal text-slate-950">0</strong>
+              <p class="mt-3 text-sm text-slate-500">累计上报记录</p>
+            </article>
+            <article class="rounded-lg bg-white p-5 shadow-panel">
+              <p class="text-sm font-black text-slate-500">今日新增</p>
+              <strong id="todayCount" class="mt-3 block text-4xl font-black tracking-normal text-grass-700">0</strong>
+              <p class="mt-3 text-sm text-slate-500">当天 00:00 后</p>
+            </article>
+            <article class="rounded-lg bg-white p-5 shadow-panel">
+              <p class="text-sm font-black text-slate-500">本周新增</p>
+              <strong id="weekCount" class="mt-3 block text-4xl font-black tracking-normal text-sky-700">0</strong>
+              <p class="mt-3 text-sm text-slate-500">最近 7 天</p>
+            </article>
+          </div>
+
+          <div class="mt-5 grid gap-5 xl:grid-cols-[1fr_420px]">
+            <section class="rounded-lg bg-white p-5 shadow-panel">
+              <div class="mb-5 flex items-center justify-between gap-3">
+                <h3 class="text-lg font-black text-slate-950">嘎查上报排行</h3>
+                <span class="rounded-full bg-skysoft px-3 py-1 text-xs font-black text-sky-800">按位置统计</span>
+              </div>
+              <div id="villageChart" class="space-y-4"></div>
+            </section>
+
+            <section class="rounded-lg bg-white p-5 shadow-panel">
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <h3 class="text-lg font-black text-slate-950">最近 20 条观察</h3>
+              </div>
+              <div id="recentList" class="max-h-[640px] space-y-3 overflow-auto pr-1"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="mapPage" class="hidden rounded-lg bg-white p-8 shadow-panel">
+          <h2 class="text-2xl font-black tracking-normal text-slate-950">地图</h2>
+          <div class="mt-5 grid min-h-96 place-items-center rounded-lg border border-dashed border-slate-300 bg-gradient-to-br from-grass-100 via-white to-sky-100 text-center">
+            <div>
+              <p class="text-xl font-black text-slate-900">上报点地图占位</p>
+              <p class="mt-2 text-sm text-slate-600">后续使用 latitude / longitude 显示所有上报点。</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="ndviPage" class="hidden">
+          <div class="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 class="text-2xl font-black tracking-normal text-slate-950">NDVI 分析</h2>
+              <p class="mt-1 text-sm text-slate-600">查看牧场植被指数的 52 周变化，用于辅助判断草地健康状态。</p>
+            </div>
+            <p id="ndviUpdatedAt" class="text-sm font-bold text-slate-500"></p>
+          </div>
+
+          <section class="mb-5 rounded-lg bg-white p-5 shadow-panel">
+            <label class="block max-w-sm">
+              <span class="mb-2 block text-sm font-black text-slate-700">牧场</span>
+              <select id="ndviPastureSelect" class="h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-900 outline-none focus:border-grass-600 focus:ring-4 focus:ring-grass-100"></select>
+            </label>
+          </section>
+
+          <div id="ndviStatus" class="mb-5 hidden"></div>
+
+          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <article class="rounded-lg bg-white p-5 shadow-panel">
+              <p class="text-sm font-black text-slate-500">当前 NDVI</p>
+              <strong id="ndviCurrent" class="mt-3 block text-4xl font-black tracking-normal text-slate-950">--</strong>
+              <p class="mt-3 text-sm text-slate-500">最新一周填充值</p>
+            </article>
+            <article class="rounded-lg bg-white p-5 shadow-panel">
+              <p class="text-sm font-black text-slate-500">周变化</p>
+              <strong id="ndviChange" class="mt-3 block text-4xl font-black tracking-normal text-slate-950">--</strong>
+              <p class="mt-3 text-sm text-slate-500">最新 - 上一周</p>
+            </article>
+            <article class="rounded-lg bg-white p-5 shadow-panel">
+              <p class="text-sm font-black text-slate-500">52 周均值</p>
+              <strong id="ndviAverage" class="mt-3 block text-4xl font-black tracking-normal text-slate-950">--</strong>
+              <p class="mt-3 text-sm text-slate-500">按当前牧场计算</p>
+            </article>
+            <article class="rounded-lg bg-white p-5 shadow-panel">
+              <p class="text-sm font-black text-slate-500">健康等级</p>
+              <div id="ndviHealth" class="mt-4"></div>
+              <p class="mt-4 text-sm text-slate-500">基于当前 NDVI</p>
+              <p class="mt-1 text-xs font-bold text-slate-400">基于本牧场 52 周历史分位数计算</p>
+            </article>
+          </div>
+
+          <section class="mt-5 rounded-lg bg-white p-5 shadow-panel">
+            <div class="mb-5 flex items-center justify-between gap-3">
+              <h3 class="text-lg font-black text-slate-950">时序趋势图</h3>
+              <span class="rounded-full bg-grass-100 px-3 py-1 text-xs font-black text-grass-800">ndvi_mean</span>
+            </div>
+            <div id="ndviChart" class="h-[360px] w-full"></div>
+          </section>
+
+          <section class="mt-5 rounded-lg bg-white p-5 shadow-panel">
+            <div class="mb-5 flex items-center justify-between gap-3">
+              <h3 class="text-lg font-black text-slate-950">牧场对比排行</h3>
+              <span class="rounded-full bg-skysoft px-3 py-1 text-xs font-black text-sky-800">按最新 NDVI</span>
+            </div>
+            <div id="ndviRanking" class="space-y-4"></div>
+          </section>
+
+          <section class="mt-5 rounded-lg bg-white shadow-panel">
+            <details id="ndviDetails" class="group">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+                <span class="text-lg font-black text-slate-950">数据明细</span>
+                <span class="text-sm font-black text-grass-700 group-open:hidden">展开</span>
+                <span class="hidden text-sm font-black text-grass-700 group-open:inline">收起</span>
+              </summary>
+              <div class="overflow-auto border-t border-slate-200">
+                <table class="min-w-full text-left text-sm">
+                  <thead class="bg-slate-50 text-xs font-black uppercase text-slate-500">
+                    <tr>
+                      <th class="px-5 py-3">周开始</th>
+                      <th class="px-5 py-3">周结束</th>
+                      <th class="px-5 py-3">ndvi_mean</th>
+                      <th class="px-5 py-3">ndvi_std</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ndviTableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+            </details>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="detailModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-5">
+    <section class="max-h-[92vh] w-full max-w-4xl overflow-auto rounded-lg bg-white p-5 shadow-panel">
+      <div class="mb-4 flex items-center justify-between gap-4">
+        <h2 class="text-xl font-black text-slate-950">观察详情</h2>
+        <button id="closeModalBtn" class="h-10 rounded-md bg-slate-900 px-4 text-sm font-black text-white">关闭</button>
+      </div>
+      <div id="detailContent"></div>
+    </section>
+  </div>
+
+  <div class="fixed bottom-5 right-5 z-40">
+    <button id="adminSettingsBtn" class="grid h-12 w-12 place-items-center rounded-full bg-slate-900 text-lg font-black text-white shadow-panel hover:bg-slate-800" title="管理设置">⚙</button>
+    <section id="adminSettingsPanel" class="absolute bottom-14 right-0 hidden w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-panel">
+      <div class="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-black text-slate-950">管理设置</h3>
+          <p class="mt-1 text-xs font-bold leading-5 text-slate-500">开启后可查看草稿决策，后续可发布和维护决策。</p>
+        </div>
+      </div>
+      <label class="flex cursor-pointer items-center justify-between gap-3 rounded-md bg-slate-50 p-3">
+        <span class="text-sm font-black text-slate-800">管理员模式</span>
+        <input id="adminModeToggle" type="checkbox" class="h-5 w-5 accent-grass-600">
+      </label>
+    </section>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>
