@@ -3,16 +3,14 @@ import * as echarts from "echarts";
 import { predictNDVI, predict4Weeks } from "./utils/ndviPredict.js";
 import { computeCapacityFromNDVI, evaluateOverstocking } from "./utils/carryingCapacity.js";
 import { buildDecisionDraft } from "./utils/buildDecisionDraft.js";
-import { createOrUpdateDecisionDraft, fetchDecisionCounts, fetchDecisions, publishDecision } from "./utils/decisionApi.js";
+import { createOrUpdateDecisionDraft, deleteDecisionDraft, fetchDecisionCounts, fetchDecisions, publishDecision } from "./utils/decisionApi.js";
 import {
-  decisionTypeClass,
-  decisionTypeLabel,
   formatDate,
   formatDateTimeShort,
   formatMetric,
   formatPercent,
-  severityClass,
-  severityLabel,
+  riskClass,
+  riskLabel,
   statusClass,
   statusLabel
 } from "./utils/decisionFormat.js";
@@ -45,9 +43,11 @@ const state = {
   decisions: {
     loading: false,
     rows: [],
-    statusFilter: "published"
+    statusFilter: "published",
+    highlightedId: null
   }
 };
+let currentDecisionDraft = null;
 let ndviChart = null;
 let decisionChartInstance = null;
 let latestCapacity = null;
@@ -220,6 +220,25 @@ function spinnerHtml(text) {
     </div>`;
 }
 
+function showToast(message, type = "success") {
+  let toast = $("#appToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "appToast";
+    toast.className = "fixed right-5 top-20 z-[60] hidden rounded-lg px-4 py-3 text-sm font-black shadow-panel";
+    document.body.appendChild(toast);
+  }
+  const classes = {
+    success: "bg-grass-600 text-white",
+    error: "bg-red-700 text-white",
+    info: "bg-slate-900 text-white"
+  };
+  toast.className = `fixed right-5 top-20 z-[60] rounded-lg px-4 py-3 text-sm font-black shadow-panel ${classes[type] || classes.info}`;
+  toast.textContent = message;
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.add("hidden"), 2600);
+}
+
 function renderOverview() {
   $("#totalCount").textContent = state.totals.total;
   $("#todayCount").textContent = state.totals.today;
@@ -233,10 +252,6 @@ function isAdmin() {
   return localStorage.getItem("grassland_admin") === "true";
 }
 
-function currentUserLabel() {
-  return isAdmin() ? "admin" : "anonymous";
-}
-
 function applyAdminModeFromUrl() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("admin") === "1") {
@@ -247,15 +262,12 @@ function applyAdminModeFromUrl() {
 function updateAdminUi() {
   const admin = isAdmin();
   $("#adminModeToggle").checked = admin;
-  $("#generateDraftsBtn").classList.toggle("hidden", !admin);
-  if (!admin && state.decisions.statusFilter === "draft") {
-    state.decisions.statusFilter = "published";
-  }
+  $("#generateDraftsBtn").classList.add("hidden");
   $("#decisionAdminBadge").textContent = admin ? "管理员模式" : "普通模式";
   $("#decisionAdminBadge").className = admin
     ? "rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white"
     : "rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600";
-  $("#decisionsListHint").textContent = admin ? "管理员模式显示全部状态，包含草稿决策。" : "普通模式仅显示已发布决策。";
+  $("#decisionsListHint").textContent = "草稿用于人工审核，已发布决策为只读记录。";
   renderDecisionFilterButtons();
 }
 
@@ -270,7 +282,7 @@ async function loadDecisionsList() {
   updateAdminUi();
 
   try {
-    state.decisions.rows = await fetchDecisions({ admin: isAdmin() });
+    state.decisions.rows = await fetchDecisions({ status: state.decisions.statusFilter });
     renderDecisionsList();
     await renderDecisionCounts();
   } catch (error) {
@@ -322,7 +334,7 @@ function setDecisionsError(message) {
 
 function renderDecisionsList() {
   renderDecisionFilterButtons();
-  const rows = filteredDecisionRows();
+  const rows = state.decisions.rows;
   $("#decisionsCount").textContent = `${rows.length} 条`;
 
   if (!rows.length) {
@@ -330,36 +342,51 @@ function renderDecisionsList() {
     return;
   }
 
-  $("#decisionsList").innerHTML = rows.map((decision) => `
-    <article class="cursor-pointer rounded-lg border border-slate-200 bg-white p-4 transition hover:border-grass-500 hover:bg-grass-50" data-decision-id="${esc(decision.id)}">
+  $("#decisionsList").innerHTML = rows.map((decision) => {
+    const isDraft = decision.status === "draft";
+    const cardClass = isDraft
+      ? "border-dashed border-slate-300 bg-white hover:border-slate-500"
+      : "border-grass-300 bg-white hover:border-grass-600";
+    const highlightClass = String(decision.id) === String(state.decisions.highlightedId) ? "ring-4 ring-amber-300 animate-pulse" : "";
+    return `
+    <article class="rounded-lg border p-4 transition ${cardClass} ${highlightClass}" data-decision-id="${esc(decision.id)}">
       <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div class="min-w-0">
           <div class="mb-3 flex flex-wrap items-center gap-2">
-            ${pillHtml(decisionTypeLabel(decision.decision_type), decisionTypeClass(decision.decision_type))}
-            ${pillHtml(severityLabel(decision.severity), severityClass(decision.severity))}
             ${pillHtml(statusLabel(decision.status), statusClass(decision.status))}
+            ${pillHtml(riskLabel(decision.risk_level), riskClass(decision.risk_level))}
           </div>
           <h4 class="text-lg font-black leading-7 text-slate-950">${esc(decision.title)}</h4>
-          <p class="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">${esc(decision.reason_summary || decision.reason_for_herder || "暂无摘要")}</p>
+          <p class="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">${esc(decision.reason || "暂无理由")}</p>
         </div>
         <div class="shrink-0 space-y-2 text-right">
           <div class="rounded-md bg-slate-50 px-3 py-2">
             <p class="text-xs font-black text-slate-500">牧场</p>
             <p class="mt-1 text-sm font-black text-slate-900">${esc(decision.pasture_id)}</p>
           </div>
-          ${isAdmin() && decision.status === "draft" ? `<button class="publish-decision-btn h-9 rounded-md bg-grass-600 px-3 text-xs font-black text-white hover:bg-grass-700" data-publish-decision-id="${esc(decision.id)}">发布</button>` : ""}
+          ${isDraft ? `
+            <div class="flex justify-end gap-2">
+              <button class="h-9 rounded-md border border-slate-300 px-3 text-xs font-black text-slate-500" type="button" disabled>✏️ 编辑</button>
+              <button class="discard-draft-btn h-9 rounded-md border border-red-200 px-3 text-xs font-black text-red-700 hover:bg-red-50" data-discard-decision-id="${esc(decision.id)}">🗑 丢弃草稿</button>
+              <button class="publish-decision-btn h-9 rounded-md bg-grass-600 px-3 text-xs font-black text-white hover:bg-grass-700" data-publish-decision-id="${esc(decision.id)}">✅ 审核并发布</button>
+            </div>` : ""}
         </div>
       </div>
       <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 text-sm md:grid-cols-5">
         ${decisionStatHtml("执行日期", `${formatDate(decision.start_date)} 至 ${formatDate(decision.end_date)}`)}
         ${decisionStatHtml("当前 NDVI", formatMetric(decision.ndvi_current))}
-        ${decisionStatHtml("本地等级", decision.local_grade || "--")}
+        ${decisionStatHtml("预测 NDVI", formatMetric(decision.ndvi_forecast))}
+        ${decisionStatHtml("本地等级", decision.local_level || "--")}
         ${decisionStatHtml("趋势", decision.trend || "--")}
         ${decisionStatHtml("置信度", formatPercent(decision.confidence))}
       </div>
-      <div class="mt-3 text-xs font-bold text-slate-400">发布时间：${formatDateTimeShort(decision.published_at)} · 创建时间：${formatDateTimeShort(decision.created_at)}</div>
+      <div class="mt-4 grid gap-3 text-sm md:grid-cols-2">
+        ${decisionStatHtml("建议休牧天数", `${Number(decision.rest_days || 0)} 天`)}
+        ${decisionStatHtml(isDraft ? "生成时间" : "发布时间", isDraft ? formatDateTimeShort(decision.created_at) : formatDateTimeShort(decision.published_at))}
+      </div>
     </article>
-  `).join("");
+  `;
+  }).join("");
 
   document.querySelectorAll("[data-decision-id]").forEach((card) => {
     card.addEventListener("click", () => {
@@ -372,18 +399,23 @@ function renderDecisionsList() {
       await handlePublishDecision(btn.dataset.publishDecisionId);
     });
   });
+  document.querySelectorAll("[data-discard-decision-id]").forEach((btn) => {
+    btn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await handleDiscardDraft(btn.dataset.discardDecisionId);
+    });
+  });
 }
 
 function filteredDecisionRows() {
-  const filter = isAdmin() ? state.decisions.statusFilter : "published";
-  return state.decisions.rows.filter((row) => row.status === filter);
+  return state.decisions.rows;
 }
 
 function renderDecisionFilterButtons() {
   document.querySelectorAll("[data-decision-status-filter]").forEach((btn) => {
     const filter = btn.dataset.decisionStatusFilter;
     const active = state.decisions.statusFilter === filter;
-    btn.disabled = !isAdmin() && filter === "draft";
+    btn.disabled = false;
     btn.classList.toggle("bg-white", active);
     btn.classList.toggle("text-slate-950", active);
     btn.classList.toggle("shadow-sm", active);
@@ -394,7 +426,6 @@ function renderDecisionFilterButtons() {
 }
 
 async function handleGenerateDrafts() {
-  if (!isAdmin()) return;
   $("#generateDraftsBtn").disabled = true;
   $("#generateDraftsBtn").textContent = "生成中...";
   setDecisionsError("");
@@ -410,13 +441,19 @@ async function handleGenerateDrafts() {
       if (!latest || !q) continue;
       const predictedNdvi = predict4Weeks(history) ?? Number(latest.ndvi_mean);
       const draft = buildDecisionDraft({ pastureId, latest, q, history, predictedNdvi });
-      results.push(await createOrUpdateDecisionDraft({ draft, createdBy: currentUserLabel() }));
+      results.push(await createOrUpdateDecisionDraft({ draft }));
     }
 
     state.decisions.statusFilter = "draft";
+    state.decisions.highlightedId = results[0]?.decision?.id || null;
     await loadDecisionsList();
     $("#decisionsStatus").className = "mb-5 rounded-lg border border-grass-200 bg-grass-50 p-4 text-grass-800";
     $("#decisionsStatus").innerHTML = `<p class="font-black">已生成 ${results.length} 条草稿；重复生成会覆盖同牧场现有草稿。</p>`;
+    showToast("草稿已生成，请前往决策发布页审核");
+    setTimeout(() => {
+      state.decisions.highlightedId = null;
+      if (currentPage === "decisions") renderDecisionsList();
+    }, 2000);
   } catch (error) {
     console.error("生成决策草稿失败：", error);
     setDecisionsError(`生成草稿失败：${error.message || "请检查 Supabase 写入权限"}`);
@@ -426,15 +463,58 @@ async function handleGenerateDrafts() {
   }
 }
 
-async function handlePublishDecision(decisionId) {
-  if (!isAdmin()) return;
+async function handleCreateDraftFromOverview() {
+  if (!currentDecisionDraft) {
+    showToast("暂无可生成的决策草稿", "error");
+    return;
+  }
+
+  const btn = $("#createDecisionDraftBtn");
+  btn.disabled = true;
+  btn.textContent = "生成中...";
   try {
-    await publishDecision({ decisionId, publishedBy: currentUserLabel() });
+    const result = await createOrUpdateDecisionDraft({ draft: currentDecisionDraft });
+    state.decisions.statusFilter = "draft";
+    state.decisions.highlightedId = result.decision?.id || null;
+    showToast("草稿已生成，请前往决策发布页审核");
+    switchPage("decisions");
+    setTimeout(() => {
+      state.decisions.highlightedId = null;
+      if (currentPage === "decisions") renderDecisionsList();
+    }, 2000);
+  } catch (error) {
+    console.error("生成决策草稿失败：", error);
+    showToast(`草稿生成失败：${error.message || "请检查 decisions 表和写入权限"}`, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "📝 生成决策草稿";
+  }
+}
+
+async function handlePublishDecision(decisionId) {
+  if (!window.confirm("确认发布这条决策吗？发布后会移动到已发布列表。")) return;
+  try {
+    await publishDecision({ decisionId });
     state.decisions.statusFilter = "published";
     await loadDecisionsList();
+    showToast("已发布");
   } catch (error) {
     console.error("发布决策失败：", error);
     setDecisionsError(`发布失败：${error.message || "请检查 Supabase 更新权限"}`);
+    showToast("发布失败", "error");
+  }
+}
+
+async function handleDiscardDraft(decisionId) {
+  if (!window.confirm("确认丢弃这条草稿吗？此操作不可恢复。")) return;
+  try {
+    await deleteDecisionDraft(decisionId);
+    await loadDecisionsList();
+    showToast("草稿已丢弃");
+  } catch (error) {
+    console.error("丢弃草稿失败：", error);
+    setDecisionsError(`丢弃失败：${error.message || "请检查 Supabase 删除权限"}`);
+    showToast("丢弃失败", "error");
   }
 }
 
@@ -464,6 +544,7 @@ async function initDecisionTab() {
     const predictions = predictNDVI(history, 4);
     const predictedNDVI = predict4Weeks(history) ?? currentNDVI;
     const draft = buildDecisionDraft({ pastureId: selectedPastureId, latest, q, history, predictedNdvi: predictedNDVI });
+    currentDecisionDraft = draft;
     const decision = draft.decision;
 
     renderDecisionMainCard(decision);
@@ -472,6 +553,7 @@ async function initDecisionTab() {
     renderMiniChart(history, predictions, decision);
     renderTriggers(decision.triggers);
     $("#goToNdviBtn").onclick = () => switchPage("ndvi");
+    $("#createDecisionDraftBtn").onclick = handleCreateDraftFromOverview;
   } catch (error) {
     console.error("读取决策总览 NDVI 数据失败：", error);
     renderDecisionError();
@@ -631,6 +713,7 @@ function renderDecisionMainCard(decision) {
           <div class="text-sm ${c.textColor} opacity-75">建议休牧</div>
         </div>
       ` : ""}
+      <button id="createDecisionDraftBtn" class="h-10 rounded-md border border-red-600 bg-white px-4 text-sm font-black text-red-700 hover:bg-red-50">📝 生成决策草稿</button>
     </div>
     <p class="mt-4 ${c.textColor} text-sm leading-relaxed">${esc(decision.reason)}</p>
   `;

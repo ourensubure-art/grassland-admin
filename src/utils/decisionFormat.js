@@ -20,6 +20,12 @@ const STATUS_LABELS = {
   cancelled: "已取消"
 };
 
+const RISK_LABELS = {
+  high: "高风险",
+  medium: "中风险",
+  low: "低风险"
+};
+
 const SEVERITY_CLASSES = {
   info: "bg-grass-100 text-grass-800 border-grass-200",
   warning: "bg-amber-100 text-amber-800 border-amber-200",
@@ -42,6 +48,12 @@ const DECISION_TYPE_CLASSES = {
   resume: "bg-sky-50 text-sky-800 border-sky-200"
 };
 
+const RISK_CLASSES = {
+  high: "bg-red-100 text-red-800 border-red-200",
+  medium: "bg-amber-100 text-amber-800 border-amber-200",
+  low: "bg-grass-100 text-grass-800 border-grass-200"
+};
+
 function labelFrom(map, value) {
   return map[value] || value || "未知";
 }
@@ -62,6 +74,10 @@ export function statusLabel(value) {
   return labelFrom(STATUS_LABELS, value);
 }
 
+export function riskLabel(value) {
+  return labelFrom(RISK_LABELS, value);
+}
+
 export function decisionTypeClass(value) {
   return classFrom(DECISION_TYPE_CLASSES, value);
 }
@@ -72,6 +88,10 @@ export function severityClass(value) {
 
 export function statusClass(value) {
   return classFrom(STATUS_CLASSES, value);
+}
+
+export function riskClass(value) {
+  return classFrom(RISK_CLASSES, value);
 }
 
 export function formatDate(value) {
