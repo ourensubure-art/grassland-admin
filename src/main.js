@@ -244,31 +244,46 @@ async function ensureSelectedPastureId() {
 }
 
 async function loadDecisionData(selectedPastureId) {
-  const { data: latest, error: latestError } = await supabase
-    .from(LATEST_NDVI_VIEW)
+  // ✅ 绕过坏视图 v_latest_ndvi，直接从原表取最新一周
+const { data: latest, error: latestError } = await supabase
+  .from(NDVI_TABLE)                          // 用原表
+  .select("*")
+  .eq("pasture_id", selectedPastureId)
+  .not("ndvi_mean", "is", null)              // 排除空值
+  .order("week_start", { ascending: false }) // 按周倒序
+  .limit(1)                                   // 只要最新一行
+  .maybeSingle();
+if (latestError) throw latestError;
+if (!latest) return { latest: null, q: null, history: [] };
+
+  // ✅ 分位数查询单独做，失败也不影响 history
+let q = null;
+try {
+  const { data: qData, error: qError } = await supabase
+    .from(PASTURE_QUANTILES_VIEW)
     .select("*")
     .eq("pasture_id", selectedPastureId)
+    .eq("week_of_year", latest.week_of_year)
     .maybeSingle();
-  if (latestError) throw latestError;
-  if (!latest) return { latest: null, q: null, history: [] };
+  if (qError) {
+    console.warn("分位数视图查询失败，跳过：", qError.message);
+  } else {
+    q = qData;
+  }
+} catch (e) {
+  console.warn("分位数视图异常，跳过：", e);
+}
 
-  const [{ data: q, error: qError }, { data: history, error: historyError }] = await Promise.all([
-    supabase
-      .from(PASTURE_QUANTILES_VIEW)
-      .select("*")
-      .eq("pasture_id", selectedPastureId)
-      .eq("week_of_year", latest.week_of_year)
-      .maybeSingle(),
-    supabase
-      .from(NDVI_TABLE)
-      .select("week_start,week_end,year,week_of_year,doy,ndvi_mean,ndvi_std")
-      .eq("pasture_id", selectedPastureId)
-      .not("ndvi_mean", "is", null)
-      .order("week_start", { ascending: true })
-  ]);
-  if (qError) throw qError;
-  if (historyError) throw historyError;
-  return { latest, q, history: history || [] };
+// ✅ 历史数据单独查（这个本身没问题）
+const { data: history, error: historyError } = await supabase
+  .from(NDVI_TABLE)
+  .select("week_start,week_end,year,week_of_year,doy,ndvi_mean,ndvi_std")
+  .eq("pasture_id", selectedPastureId)
+  .not("ndvi_mean", "is", null)
+  .order("week_start", { ascending: true });
+
+if (historyError) throw historyError;
+return { latest, q, history: history || [] };
 }
 
 function renderDecisionLoading() {
